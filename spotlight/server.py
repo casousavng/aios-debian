@@ -71,6 +71,18 @@ def ask(req: PromptRequest):
     if prompt in ("/new", "/clear"):
         return {"chat_id": None, "reply": "Nova conversa agy iniciada."}
 
+    if prompt.startswith("/model "):
+        model_name = prompt.split(None, 1)[1].strip()
+        cfg_path = HOME / ".gemini" / "antigravity-cli" / "settings.json"
+        try:
+            cfg = json.loads(cfg_path.read_text(encoding="utf-8")) if cfg_path.exists() else {}
+            cfg["model"] = model_name
+            cfg_path.parent.mkdir(parents=True, exist_ok=True)
+            cfg_path.write_text(json.dumps(cfg, indent=2), encoding="utf-8")
+            return {"chat_id": req.chat_id, "reply": f"Modelo alterado para `{model_name}`."}
+        except Exception as e:
+            return {"chat_id": req.chat_id, "reply": f"Erro ao alterar modelo: {e}"}
+
     chat_id = req.chat_id or datetime.datetime.now().strftime("%Y-%m-%d_%H%M%S")
     chat_file = CHATS_DIR / f"{chat_id}.md"
 
@@ -147,7 +159,7 @@ def ask_stream(req: PromptRequest):
             yield json.dumps({"chat_id": chat_id, "reply": msg, "done": True}) + "\n"
             return
 
-        if Path(agent_bin).name == "opencode" or prompt in ("/models", "/agents", "/mcp", "/help", "/changelog"):
+        if Path(agent_bin).name == "opencode" or prompt.startswith("/model ") or prompt in ("/models", "/agents", "/mcp", "/help", "/changelog"):
             res = ask(req)
             yield json.dumps({"chat_id": res["chat_id"], "reply": res["reply"], "done": True}) + "\n"
             return

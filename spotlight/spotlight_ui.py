@@ -197,6 +197,7 @@ list.results-list {
 list.results-list row {
     padding: 8px 12px;
     border-radius: 12px;
+    border: 1px solid transparent;
     margin: 2px 4px;
     color: #f8fafc;
 }
@@ -279,6 +280,20 @@ IGNORED_DESKTOP_IDS = {
     "vim.desktop",
     "htop.desktop",
 }
+
+
+SLASH_COMMANDS = [
+    ("/models", "Listar modelos disponíveis no agy", "ask_now:/models"),
+    ("/model ", "Definir modelo ativo (ex: /model Gemini 4 Hydrogen (Medium))", "fill:/model "),
+    ("/agents", "Listar agentes disponíveis no agy", "ask_now:/agents"),
+    ("/mcp", "Listar servidores MCP configurados", "ask_now:/mcp"),
+    ("/new", "Iniciar nova conversa limpa", "ask_now:/new"),
+    ("/clear", "Limpar sessão atual do agy", "ask_now:/clear"),
+    ("/compact", "Compactar contexto da conversa atual", "ask_now:/compact"),
+    ("/plan ", "Pedir plano antes de executar", "fill:/plan "),
+    ("/changelog", "Ver novidades da versão do agy", "ask_now:/changelog"),
+    ("/help", "Mostrar ajuda do agy CLI", "ask_now:/help"),
+]
 
 
 def load_desktop_apps():
@@ -865,7 +880,15 @@ class SpotlightWindow(Gtk.Window):
         if last_word.startswith("@"):
             return self.build_at_matches(last_word)
 
-        # If prompt starts with / or contains @, pass directly to agy (no app hijacking)
+        # If prompt starts with /, autocomplete agy slash commands
+        if q.startswith("/") and " " not in q:
+            return [
+                ("slash", cmd, desc, "utilities-terminal", action)
+                for cmd, desc, action in SLASH_COMMANDS
+                if q in cmd.lower() or q.lstrip("/") in desc.lower()
+            ][:8]
+
+        # If prompt contains @ or slash with args, pass directly to agy
         if q.startswith("/") or "@" in q:
             return []
 
@@ -1106,6 +1129,17 @@ class SpotlightWindow(Gtk.Window):
             subprocess.Popen(payload, shell=True)
             self.clear_query()
             self.hide_results()
+        elif kind == "slash":
+            if payload.startswith("ask_now:"):
+                cmd_txt = payload.split(":", 1)[1]
+                self.clear_query()
+                self.hide_results()
+                self.send_to_ai(cmd_txt)
+            else:
+                fill_txt = payload.split(":", 1)[1]
+                self.entry_buf.set_text(fill_txt)
+                self.entry_buf.place_cursor(self.entry_buf.get_end_iter())
+                self.entry.grab_focus()
         elif kind == "mention":
             raw = self.get_query_text()
             parts = raw.rsplit(None, 1)
