@@ -40,7 +40,7 @@ echo 'gtk-icon-theme-name="Papirus-Dark"' > "$HOME/.gtkrc-2.0"
 
 echo "=== [4/6] Instalar aplicação Spotlight ==="
 sudo mkdir -p /opt/ai-os/spotlight
-sudo cp spotlight/server.py spotlight/index.html spotlight/spotlight_ui.py spotlight/wallpaper.py spotlight/litemd.py /opt/ai-os/spotlight/
+sudo cp spotlight/server.py spotlight/index.html spotlight/spotlight_ui.py spotlight/wallpaper.py spotlight/litemd.py spotlight/i18n.py /opt/ai-os/spotlight/
 sudo chmod +x /opt/ai-os/spotlight/spotlight_ui.py /opt/ai-os/spotlight/wallpaper.py /opt/ai-os/spotlight/litemd.py
 sudo ln -sf /opt/ai-os/spotlight/litemd.py /usr/local/bin/litemd
 sudo tee /usr/share/applications/litemd.desktop >/dev/null << 'EOF'

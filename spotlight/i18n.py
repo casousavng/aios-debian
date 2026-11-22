@@ -1,0 +1,133 @@
+"""Lightweight bilingual (PT-PT / EN) localization for AI-OS."""
+import json
+import os
+from pathlib import Path
+
+CONFIG_PATH = Path.home() / ".ai-os" / "config.json"
+
+STRINGS = {
+    "pt": {
+        "placeholder": "Pede algo, executa uma tarefa ou abre uma app...",
+        "open_windows": "Janelas Abertas",
+        "no_windows": "Nenhuma janela aberta",
+        "show_windows_tip": "Mostrar todas as janelas abertas",
+        "volume": "Volume",
+        "brightness": "Brilho",
+        "podman_active": "Contentores Podman ativos: {n}",
+        "podman_ready": "Podman pronto",
+        "lock_btn": "Bloquear Ecrã (Super+L)",
+        "copy": "Copiar",
+        "open_litemd": "Abrir no LiteMD",
+        "processing": "A processar pedido...",
+        "no_chats": "Ainda sem conversas guardadas.",
+        "saved_chat": "Conversa guardada",
+        "done_notify": "Pedido concluído.",
+        "new_chat": "Nova conversa agy iniciada.",
+        "lang_changed": "Idioma alterado para **Português (PT-PT)**.",
+        "act_terminal": ("Terminal", "Abrir consola (xterm)"),
+        "act_files": ("Ficheiros", "Abrir gestor de ficheiros (PCManFM)"),
+        "act_browser": ("Navegador", "Abrir Chromium"),
+        "act_sysinfo": ("Estado do Sistema", "Ver CPU, RAM e disco"),
+        "act_sysinfo_prompt": "Mostra resumo rápido de CPU, RAM e disco desta máquina.",
+        "act_lock": ("Bloquear Ecrã", "Bloquear sessão (Super+L)"),
+        "act_reboot": ("Reiniciar VM", "Reiniciar o sistema"),
+        "act_poweroff": ("Desligar VM", "Desligar o sistema"),
+        "open_app": "Abrir aplicação ({cmd})",
+        "attach_agy": "Anexar ao pedido agy",
+        "slash_usage": "Ver limites e consumo atual da subscrição agy",
+        "slash_model": "Escolher e ativar modelo do agy",
+        "slash_mode": "Alternar modo de execução (auto, accept-edits, plan)",
+        "slash_models": "Listar todos os modelos do agy",
+        "slash_agents": "Listar agentes disponíveis no agy",
+        "slash_mcp": "Listar servidores MCP configurados",
+        "slash_new": "Iniciar nova conversa limpa",
+        "slash_clear": "Limpar sessão atual do agy",
+        "slash_compact": "Compactar contexto da conversa atual",
+        "slash_plan": "Pedir plano antes de executar",
+        "slash_lang": "Alternar idioma (pt / en)",
+        "slash_changelog": "Ver novidades da versão do agy",
+        "slash_help": "Mostrar ajuda do agy CLI",
+        "activate_model": "Ativar modelo ({id})",
+        "litemd_open": "Abrir",
+        "litemd_empty": "# LiteMD\n\nClica em **Abrir** para escolher um ficheiro `.md`.",
+    },
+    "en": {
+        "placeholder": "Ask anything, run a task, or open an app...",
+        "open_windows": "Open Windows",
+        "no_windows": "No open windows",
+        "show_windows_tip": "Show all open windows",
+        "volume": "Volume",
+        "brightness": "Brightness",
+        "podman_active": "Active Podman containers: {n}",
+        "podman_ready": "Podman ready",
+        "lock_btn": "Lock Screen (Super+L)",
+        "copy": "Copy",
+        "open_litemd": "Open in LiteMD",
+        "processing": "Processing request...",
+        "no_chats": "No saved conversations yet.",
+        "saved_chat": "Saved conversation",
+        "done_notify": "Task completed.",
+        "new_chat": "New agy conversation started.",
+        "lang_changed": "Language switched to **English (EN)**.",
+        "act_terminal": ("Terminal", "Open terminal (xterm)"),
+        "act_files": ("Files", "Open file manager (PCManFM)"),
+        "act_browser": ("Browser", "Open Chromium"),
+        "act_sysinfo": ("System Status", "View CPU, RAM, and disk"),
+        "act_sysinfo_prompt": "Show a quick summary of CPU, RAM, and disk on this machine.",
+        "act_lock": ("Lock Screen", "Lock session (Super+L)"),
+        "act_reboot": ("Reboot VM", "Restart the system"),
+        "act_poweroff": ("Power Off VM", "Shut down the system"),
+        "open_app": "Open application ({cmd})",
+        "attach_agy": "Attach to agy prompt",
+        "slash_usage": "Show current agy subscription limits and usage",
+        "slash_model": "Choose and activate agy model",
+        "slash_mode": "Switch execution mode (auto, accept-edits, plan)",
+        "slash_models": "List all available agy models",
+        "slash_agents": "List available agy agents",
+        "slash_mcp": "List configured MCP servers",
+        "slash_new": "Start a clean new conversation",
+        "slash_clear": "Clear current agy session",
+        "slash_compact": "Compact current conversation context",
+        "slash_plan": "Request a plan before executing",
+        "slash_lang": "Switch language (pt / en)",
+        "slash_changelog": "Show agy version changelog",
+        "slash_help": "Show agy CLI help",
+        "activate_model": "Activate model ({id})",
+        "litemd_open": "Open",
+        "litemd_empty": "# LiteMD\n\nClick **Open** to choose a `.md` file.",
+    },
+}
+
+
+def get_lang() -> str:
+    try:
+        if CONFIG_PATH.exists():
+            data = json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
+            lang = data.get("lang", "").lower()
+            if lang in STRINGS:
+                return lang
+    except Exception:
+        pass
+    return "en" if os.environ.get("LANG", "").startswith("en") else "pt"
+
+
+def set_lang(lang: str) -> str:
+    lang = "en" if lang.lower().startswith("en") else "pt"
+    CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
+    data = {}
+    try:
+        if CONFIG_PATH.exists():
+            data = json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
+    except Exception:
+        pass
+    data["lang"] = lang
+    CONFIG_PATH.write_text(json.dumps(data, indent=2), encoding="utf-8")
+    return lang
+
+
+def t(key: str, **kwargs):
+    lang = get_lang()
+    val = STRINGS.get(lang, STRINGS["pt"]).get(key, key)
+    if isinstance(val, str) and kwargs:
+        return val.format(**kwargs)
+    return val

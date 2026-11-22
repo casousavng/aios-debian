@@ -14,6 +14,7 @@ from pathlib import Path
 import cairo
 import gi
 import markdown
+from i18n import get_lang, set_lang, t
 
 gi.require_version("Gtk", "3.0")
 gi.require_version("Gdk", "3.0")
@@ -287,25 +288,40 @@ IGNORED_DESKTOP_IDS = {
 }
 
 
-SLASH_COMMANDS = [
-    ("/usage", "Ver limites e consumo atual da subscrição agy", "ask_now:/usage"),
-    ("/model ", "Escolher e ativar modelo do agy", "fill:/model "),
-    ("/mode ", "Alternar modo de execução (auto, accept-edits, plan)", "fill:/mode "),
-    ("/models", "Listar todos os modelos do agy", "ask_now:/models"),
-    ("/agents", "Listar agentes disponíveis no agy", "ask_now:/agents"),
-    ("/mcp", "Listar servidores MCP configurados", "ask_now:/mcp"),
-    ("/new", "Iniciar nova conversa limpa", "ask_now:/new"),
-    ("/clear", "Limpar sessão atual do agy", "ask_now:/clear"),
-    ("/compact", "Compactar contexto da conversa atual", "ask_now:/compact"),
-    ("/plan ", "Pedir plano antes de executar", "fill:/plan "),
-    ("/changelog", "Ver novidades da versão do agy", "ask_now:/changelog"),
-    ("/help", "Mostrar ajuda do agy CLI", "ask_now:/help"),
-]
+def get_system_actions():
+    return [
+        (*t("act_terminal"), "utilities-terminal", lambda: subprocess.Popen(["xterm"])),
+        (*t("act_files"), "system-file-manager", lambda: subprocess.Popen(["pcmanfm", str(HOME)])),
+        (*t("act_browser"), "web-browser", lambda: subprocess.Popen(["chromium"])),
+        (*t("act_sysinfo"), "utilities-system-monitor", f"ask:{t('act_sysinfo_prompt')}"),
+        (*t("act_lock"), "system-lock-screen", lambda: subprocess.Popen(["i3lock", "-c", "0f1117"])),
+        (*t("act_reboot"), "system-reboot", lambda: subprocess.Popen(["sudo", "reboot"])),
+        (*t("act_poweroff"), "system-shutdown", lambda: subprocess.Popen(["sudo", "poweroff"])),
+    ]
+
+
+def get_slash_commands():
+    return [
+        ("/usage", t("slash_usage"), "ask_now:/usage"),
+        ("/model ", t("slash_model"), "fill:/model "),
+        ("/mode ", t("slash_mode"), "fill:/mode "),
+        ("/lang ", t("slash_lang"), "fill:/lang "),
+        ("/models", t("slash_models"), "ask_now:/models"),
+        ("/agents", t("slash_agents"), "ask_now:/agents"),
+        ("/mcp", t("slash_mcp"), "ask_now:/mcp"),
+        ("/new", t("slash_new"), "ask_now:/new"),
+        ("/clear", t("slash_clear"), "ask_now:/clear"),
+        ("/compact", t("slash_compact"), "ask_now:/compact"),
+        ("/plan ", t("slash_plan"), "fill:/plan "),
+        ("/changelog", t("slash_changelog"), "ask_now:/changelog"),
+        ("/help", t("slash_help"), "ask_now:/help"),
+    ]
+
 
 AGENT_MODES = [
-    ("auto", "Execução autónoma direta"),
-    ("accept-edits", "Aplica edições automaticamente"),
-    ("plan", "Planeia antes de alterar ficheiros"),
+    ("auto", "Execução autónoma direta / Autonomous execution"),
+    ("accept-edits", "Aplica edições / Auto-apply edits"),
+    ("plan", "Planeia antes / Plan before editing"),
 ]
 
 
@@ -431,32 +447,37 @@ class ControlPopover(Gtk.Window):
         card.set_size_request(270, -1)
         self.add(card)
 
-        vol_lbl = Gtk.Label(label="Volume", xalign=0)
-        vol_lbl.get_style_context().add_class("pop-title")
-        card.pack_start(vol_lbl, False, False, 0)
+        self.vol_lbl = Gtk.Label(label=t("volume"), xalign=0)
+        self.vol_lbl.get_style_context().add_class("pop-title")
+        card.pack_start(self.vol_lbl, False, False, 0)
         self.vol_scale = Gtk.Scale.new_with_range(Gtk.Orientation.HORIZONTAL, 0, 100, 5)
         self.vol_scale.set_value(70)
         self.vol_scale.set_draw_value(False)
         self.vol_scale.connect("value-changed", self.on_vol_changed)
         card.pack_start(self.vol_scale, False, False, 0)
 
-        bri_lbl = Gtk.Label(label="Brilho", xalign=0)
-        bri_lbl.get_style_context().add_class("pop-title")
-        card.pack_start(bri_lbl, False, False, 0)
+        self.bri_lbl = Gtk.Label(label=t("brightness"), xalign=0)
+        self.bri_lbl.get_style_context().add_class("pop-title")
+        card.pack_start(self.bri_lbl, False, False, 0)
         self.bri_scale = Gtk.Scale.new_with_range(Gtk.Orientation.HORIZONTAL, 10, 100, 5)
         self.bri_scale.set_value(100)
         self.bri_scale.set_draw_value(False)
         self.bri_scale.connect("value-changed", self.on_bri_changed)
         card.pack_start(self.bri_scale, False, False, 0)
 
-        self.info_lbl = Gtk.Label(label="Contentores Podman: ...", xalign=0)
+        self.info_lbl = Gtk.Label(label=t("podman_ready"), xalign=0)
         self.info_lbl.get_style_context().add_class("pop-sub")
         card.pack_start(self.info_lbl, False, False, 0)
 
-        lock_btn = Gtk.Button(label="Bloquear Ecrã (Super+L)")
-        lock_btn.get_style_context().add_class("reply-btn")
-        lock_btn.connect("clicked", lambda *_: (self.hide(), subprocess.Popen(["i3lock", "-c", "0f1117"])))
-        card.pack_start(lock_btn, False, False, 0)
+        self.lock_btn = Gtk.Button(label=t("lock_btn"))
+        self.lock_btn.get_style_context().add_class("reply-btn")
+        self.lock_btn.connect("clicked", lambda *_: (self.hide(), subprocess.Popen(["i3lock", "-c", "0f1117"])))
+        card.pack_start(self.lock_btn, False, False, 0)
+
+    def refresh_labels(self):
+        self.vol_lbl.set_text(t("volume"))
+        self.bri_lbl.set_text(t("brightness"))
+        self.lock_btn.set_label(t("lock_btn"))
 
     def on_vol_changed(self, scale):
         val = int(scale.get_value())
@@ -540,6 +561,15 @@ class TopBarWindow(Gtk.Window):
         self._last_windows = None
 
         self.popover = ControlPopover()
+
+        self.lang_btn = Gtk.Button(label=get_lang().upper())
+        self.lang_btn.set_can_focus(False)
+        self.lang_btn.set_valign(Gtk.Align.CENTER)
+        self.lang_btn.get_style_context().add_class("win-dot")
+        self.lang_btn.set_tooltip_text("PT-PT / EN")
+        self.on_lang_changed = None
+        self.lang_btn.connect("clicked", self._toggle_lang)
+        bar.pack_end(self.lang_btn, False, False, 0)
 
         status_btn = Gtk.Button()
         status_btn.set_can_focus(False)
@@ -642,6 +672,18 @@ class TopBarWindow(Gtk.Window):
         self.dots_box.show_all()
         return True
 
+    def _toggle_lang(self, *_):
+        nxt = "en" if get_lang() == "pt" else "pt"
+        set_lang(nxt)
+        self.apply_lang()
+        if self.on_lang_changed:
+            self.on_lang_changed()
+
+    def apply_lang(self):
+        self.lang_btn.set_label(get_lang().upper())
+        self.logo_btn.set_tooltip_text(t("show_windows_tip"))
+        self.popover.refresh_labels()
+
     def set_ai_busy(self, busy: bool):
         self.logo_lbl.set_text("✦ AI..." if busy else "◉")
 
@@ -711,16 +753,16 @@ class SpotlightWindow(Gtk.Window):
         self.reply_box.get_style_context().add_class("ai-reply-box")
         actions_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
         actions_row.get_style_context().add_class("reply-actions")
-        copy_btn = Gtk.Button(label="Copiar")
-        copy_btn.get_style_context().add_class("reply-btn")
-        copy_btn.set_can_focus(False)
-        copy_btn.connect("clicked", self.on_copy_reply)
-        litemd_btn = Gtk.Button(label="Abrir no LiteMD")
-        litemd_btn.get_style_context().add_class("reply-btn")
-        litemd_btn.set_can_focus(False)
-        litemd_btn.connect("clicked", self.on_open_litemd)
-        actions_row.pack_end(litemd_btn, False, False, 0)
-        actions_row.pack_end(copy_btn, False, False, 0)
+        self.copy_btn = Gtk.Button(label=t("copy"))
+        self.copy_btn.get_style_context().add_class("reply-btn")
+        self.copy_btn.set_can_focus(False)
+        self.copy_btn.connect("clicked", self.on_copy_reply)
+        self.litemd_btn = Gtk.Button(label=t("open_litemd"))
+        self.litemd_btn.get_style_context().add_class("reply-btn")
+        self.litemd_btn.set_can_focus(False)
+        self.litemd_btn.connect("clicked", self.on_open_litemd)
+        actions_row.pack_end(self.litemd_btn, False, False, 0)
+        actions_row.pack_end(self.copy_btn, False, False, 0)
         self.reply_box.pack_start(actions_row, False, False, 0)
 
         self.reply_view = WebKit2.WebView()
@@ -783,12 +825,15 @@ class SpotlightWindow(Gtk.Window):
         overlay = Gtk.Overlay()
         overlay.set_size_request(-1, 24)
         overlay.add(self.entry_scroll)
-        self.placeholder_lbl = Gtk.Label(label="Pede algo, executa uma tarefa ou abre uma app...", xalign=0)
+        self.placeholder_lbl = Gtk.Label(label=t("placeholder"), xalign=0)
         self.placeholder_lbl.get_style_context().add_class("search-placeholder")
         self.placeholder_lbl.set_no_show_all(True)
         self.placeholder_lbl.show()
         overlay.add_overlay(self.placeholder_lbl)
         overlay.set_overlay_pass_through(self.placeholder_lbl, True)
+
+        if self.topbar:
+            self.topbar.on_lang_changed = self.apply_lang
 
         v_wrap = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
         v_wrap.pack_start(overlay, True, False, 0)
@@ -830,6 +875,14 @@ class SpotlightWindow(Gtk.Window):
         self.refresh_status()
         GLib.timeout_add_seconds(10, self.refresh_status)
         GLib.timeout_add_seconds(600, self.refresh_wallpaper)
+
+    def apply_lang(self):
+        self.placeholder_lbl.set_text(t("placeholder"))
+        self.copy_btn.set_label(t("copy"))
+        self.litemd_btn.set_label(t("open_litemd"))
+        self._last_match_keys = None
+        if self.get_query_text().strip():
+            self.on_search_changed()
 
     def get_query_text(self):
         start, end = self.entry_buf.get_bounds()
@@ -1009,11 +1062,17 @@ class SpotlightWindow(Gtk.Window):
                 if not filt or filt in mode_id
             ]
 
+        if q_raw.startswith("/lang "):
+            return [
+                ("slash", "pt", "Português (PT-PT)", "preferences-desktop-locale", "ask_now:/lang pt"),
+                ("slash", "en", "English (EN)", "preferences-desktop-locale", "ask_now:/lang en"),
+            ]
+
         # If prompt starts with /, autocomplete agy slash commands
         if q.startswith("/") and " " not in q:
             return [
                 ("slash", cmd, desc, "utilities-terminal", action)
-                for cmd, desc, action in SLASH_COMMANDS
+                for cmd, desc, action in get_slash_commands()
                 if q in cmd.lower() or q.lstrip("/") in desc.lower()
             ][:8]
 
@@ -1024,14 +1083,14 @@ class SpotlightWindow(Gtk.Window):
         matches = []
 
         # 1. System actions
-        for title, sub, icon_name, action in SYSTEM_ACTIONS:
+        for title, sub, icon_name, action in get_system_actions():
             if q in title.lower() or q in sub.lower():
                 matches.append(("action", title, sub, icon_name, action))
 
         # 2. Desktop apps
         for name, cmd, icon_name in self.apps:
             if q in name.lower():
-                matches.append(("app", name, f"Abrir aplicação ({cmd.split()[0]})", icon_name, cmd))
+                matches.append(("app", name, t("open_app", cmd=cmd.split()[0]), icon_name, cmd))
 
         # 3. Files in user folders
         count = 0
@@ -1290,8 +1349,16 @@ class SpotlightWindow(Gtk.Window):
             self.hide_results()
 
     def send_to_ai(self, prompt):
+        if prompt.strip().startswith("/lang "):
+            lang = set_lang(prompt.split(None, 1)[1].strip())
+            if self.topbar:
+                self.topbar.apply_lang()
+            self.apply_lang()
+            self.show_reply(t("lang_changed"))
+            return
+
         self._save_history(prompt)
-        self.show_reply("A processar pedido...")
+        self.show_reply(t("processing"))
         if self.topbar:
             GLib.idle_add(self.topbar.set_ai_busy, True)
 
