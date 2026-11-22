@@ -382,8 +382,18 @@ class ControlPopover(Gtk.Window):
         subprocess.Popen(["wpctl", "set-volume", "@DEFAULT_AUDIO_SINK@", f"{val}%"], stderr=subprocess.DEVNULL)
 
     def on_bri_changed(self, scale):
-        val = int(scale.get_value())
-        subprocess.Popen(["brightnessctl", "set", f"{val}%"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        val = max(20, min(100, int(scale.get_value())))
+        res = subprocess.run(
+            ["brightnessctl", "-c", "backlight", "set", f"{val}%"],
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+        )
+        if res.returncode != 0:
+            try:
+                out = subprocess.check_output(["xrandr", "--listmonitors"], text=True)
+                mon = out.splitlines()[-1].split()[-1]
+                subprocess.Popen(["xrandr", "--output", mon, "--brightness", f"{val / 100.0:.2f}"])
+            except Exception:
+                pass
 
     def toggle_at(self, geom):
         if self.is_visible():
