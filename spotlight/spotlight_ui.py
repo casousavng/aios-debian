@@ -91,6 +91,33 @@ button.win-dot-active {
     font-weight: 500;
     margin-left: 12px;
 }
+.popover-card {
+    background-color: rgba(20, 26, 34, 0.92);
+    border: 1px solid rgba(255, 255, 255, 0.24);
+    border-radius: 14px;
+    padding: 12px 14px;
+}
+.pop-title {
+    color: #f8fafc;
+    font-size: 12px;
+    font-weight: 600;
+}
+.pop-sub {
+    color: #94a3b8;
+    font-size: 11px;
+}
+button.status-trigger {
+    background-image: none;
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    padding: 0 4px;
+    margin: 0;
+}
+button.status-trigger:hover {
+    background-color: rgba(255, 255, 255, 0.08);
+    border-radius: 6px;
+}
 .spotlight-card {
     background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.16) 0%, rgba(20, 26, 34, 0.08) 100%);
     background-color: rgba(20, 26, 34, 0.74);
@@ -227,6 +254,7 @@ SYSTEM_ACTIONS = [
     ("Ficheiros", "Abrir gestor de ficheiros (PCManFM)", "system-file-manager", lambda: subprocess.Popen(["pcmanfm", str(HOME)])),
     ("Navegador", "Abrir Chromium", "web-browser", lambda: subprocess.Popen(["chromium"])),
     ("Estado do Sistema", "Ver CPU, RAM e disco", "utilities-system-monitor", "ask:Mostra resumo rápido de CPU, RAM e disco desta máquina."),
+    ("Bloquear Ecrã", "Bloquear sessão (Super+L)", "system-lock-screen", lambda: subprocess.Popen(["i3lock", "-c", "0f1117"])),
     ("Reiniciar VM", "Reiniciar o sistema", "system-reboot", lambda: subprocess.Popen(["sudo", "reboot"])),
     ("Desligar VM", "Desligar o sistema", "system-shutdown", lambda: subprocess.Popen(["sudo", "poweroff"])),
 ]
@@ -271,6 +299,71 @@ def load_desktop_apps():
     return apps
 
 
+class ControlPopover(Gtk.Window):
+    def __init__(self):
+        super().__init__(type=Gtk.WindowType.POPUP)
+        self.set_decorated(False)
+        self.set_keep_above(True)
+        self.set_app_paintable(True)
+        screen = self.get_screen()
+        visual = screen.get_rgba_visual()
+        if visual and screen.is_composited():
+            self.set_visual(visual)
+        self.connect("draw", clear_transparent)
+
+        card = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+        card.get_style_context().add_class("popover-card")
+        card.set_size_request(270, -1)
+        self.add(card)
+
+        vol_lbl = Gtk.Label(label="Volume", xalign=0)
+        vol_lbl.get_style_context().add_class("pop-title")
+        card.pack_start(vol_lbl, False, False, 0)
+        self.vol_scale = Gtk.Scale.new_with_range(Gtk.Orientation.HORIZONTAL, 0, 100, 5)
+        self.vol_scale.set_value(70)
+        self.vol_scale.set_draw_value(False)
+        self.vol_scale.connect("value-changed", self.on_vol_changed)
+        card.pack_start(self.vol_scale, False, False, 0)
+
+        bri_lbl = Gtk.Label(label="Brilho", xalign=0)
+        bri_lbl.get_style_context().add_class("pop-title")
+        card.pack_start(bri_lbl, False, False, 0)
+        self.bri_scale = Gtk.Scale.new_with_range(Gtk.Orientation.HORIZONTAL, 10, 100, 5)
+        self.bri_scale.set_value(100)
+        self.bri_scale.set_draw_value(False)
+        self.bri_scale.connect("value-changed", self.on_bri_changed)
+        card.pack_start(self.bri_scale, False, False, 0)
+
+        self.info_lbl = Gtk.Label(label="Contentores Podman: ...", xalign=0)
+        self.info_lbl.get_style_context().add_class("pop-sub")
+        card.pack_start(self.info_lbl, False, False, 0)
+
+        lock_btn = Gtk.Button(label="Bloquear Ecrã (Super+L)")
+        lock_btn.get_style_context().add_class("reply-btn")
+        lock_btn.connect("clicked", lambda *_: (self.hide(), subprocess.Popen(["i3lock", "-c", "0f1117"])))
+        card.pack_start(lock_btn, False, False, 0)
+
+    def on_vol_changed(self, scale):
+        val = int(scale.get_value())
+        subprocess.Popen(["wpctl", "set-volume", "@DEFAULT_AUDIO_SINK@", f"{val}%"], stderr=subprocess.DEVNULL)
+
+    def on_bri_changed(self, scale):
+        val = int(scale.get_value())
+        subprocess.Popen(["brightnessctl", "set", f"{val}%"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+    def toggle_at(self, geom):
+        if self.is_visible():
+            self.hide()
+            return
+        try:
+            ps = subprocess.check_output(["podman", "ps", "-q"], text=True, stderr=subprocess.DEVNULL).splitlines()
+            self.info_lbl.set_text(f"Contentores Podman ativos: {len(ps)}")
+        except Exception:
+            self.info_lbl.set_text("Podman pronto")
+        self.move(geom.x + geom.width - 284, geom.y + 34)
+        self.show_all()
+
+
 class TopBarWindow(Gtk.Window):
     def __init__(self):
         super().__init__(type=Gtk.WindowType.TOPLEVEL)
@@ -312,9 +405,19 @@ class TopBarWindow(Gtk.Window):
         bar.pack_start(self.dots_box, False, False, 0)
         self._last_windows = None
 
+        self.popover = ControlPopover()
+
+        status_btn = Gtk.Button()
+        status_btn.set_can_focus(False)
+        status_btn.get_style_context().add_class("status-trigger")
+        status_btn.connect("clicked", lambda *_: self.popover.toggle_at(geom))
+        status_inner = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
+        status_btn.add(status_inner)
+        bar.pack_end(status_btn, False, False, 0)
+
         self.clock_lbl = Gtk.Label(label="--:--")
         self.clock_lbl.get_style_context().add_class("topbar-item")
-        bar.pack_end(self.clock_lbl, False, False, 0)
+        status_inner.pack_end(self.clock_lbl, False, False, 0)
 
         bat_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=4)
         self.bat_icon = Gtk.Image.new_from_icon_name("battery-full-charged-symbolic", Gtk.IconSize.MENU)
@@ -322,7 +425,7 @@ class TopBarWindow(Gtk.Window):
         bat_box.get_style_context().add_class("topbar-item")
         bat_box.pack_start(self.bat_icon, False, False, 0)
         bat_box.pack_start(self.bat_lbl, False, False, 0)
-        bar.pack_end(bat_box, False, False, 0)
+        status_inner.pack_end(bat_box, False, False, 0)
 
         wifi_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=4)
         self.wifi_icon = Gtk.Image.new_from_icon_name("network-wireless-symbolic", Gtk.IconSize.MENU)
@@ -330,7 +433,7 @@ class TopBarWindow(Gtk.Window):
         wifi_box.get_style_context().add_class("topbar-item")
         wifi_box.pack_start(self.wifi_icon, False, False, 0)
         wifi_box.pack_start(self.wifi_lbl, False, False, 0)
-        bar.pack_end(wifi_box, False, False, 0)
+        status_inner.pack_end(wifi_box, False, False, 0)
 
         self.move(geom.x, geom.y)
         self.show_all()
@@ -833,7 +936,55 @@ class SpotlightWindow(Gtk.Window):
         if first:
             self.listbox.select_row(first)
 
+    def show_chats_history(self):
+        chats_dir = HOME / ".ai-os" / "chats"
+        files = sorted(chats_dir.glob("*.md"), reverse=True)[:8]
+        if not files:
+            self.show_reply("Ainda sem conversas guardadas.")
+            return
+        self.reply_box.hide()
+        matches = []
+        for f in files:
+            preview = "Conversa guardada"
+            try:
+                lines = [l.strip() for l in f.read_text(encoding="utf-8").splitlines() if l.strip() and not l.startswith("#")]
+                if lines:
+                    preview = lines[0][:70]
+            except OSError:
+                pass
+            matches.append(("chat", f.stem, preview, "document-open-recent", f.stem))
+        self.results = matches
+        self._last_match_keys = None
+        for child in self.listbox.get_children():
+            self.listbox.remove(child)
+        for _, title, sub, icon_name, _ in matches:
+            row = Gtk.ListBoxRow()
+            hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+            ico = Gtk.Image.new_from_icon_name(icon_name, Gtk.IconSize.LARGE_TOOLBAR)
+            ico.set_pixel_size(20)
+            hbox.pack_start(ico, False, False, 0)
+            box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=1)
+            t_lbl = Gtk.Label(label=title, xalign=0)
+            t_lbl.get_style_context().add_class("row-title")
+            s_lbl = Gtk.Label(label=sub, xalign=0)
+            s_lbl.set_ellipsize(Pango.EllipsizeMode.END)
+            s_lbl.set_max_width_chars(70)
+            s_lbl.get_style_context().add_class("row-sub")
+            box.pack_start(t_lbl, False, False, 0)
+            box.pack_start(s_lbl, False, False, 0)
+            hbox.pack_start(box, True, True, 0)
+            row.add(hbox)
+            self.listbox.add(row)
+        self.divider.show()
+        self.list_scroll.show_all()
+        first = self.listbox.get_row_at_index(0)
+        if first:
+            self.listbox.select_row(first)
+
     def on_entry_key_press(self, _, event):
+        if (event.state & Gdk.ModifierType.CONTROL_MASK) and event.keyval in (Gdk.KEY_h, Gdk.KEY_H):
+            self.show_chats_history()
+            return True
         if event.keyval in (Gdk.KEY_Return, Gdk.KEY_KP_Enter):
             if event.state & Gdk.ModifierType.SHIFT_MASK:
                 return False
@@ -852,7 +1003,55 @@ class SpotlightWindow(Gtk.Window):
             return True
         return False
 
+    def show_chats_history(self):
+        chats_dir = HOME / ".ai-os" / "chats"
+        files = sorted(chats_dir.glob("*.md"), reverse=True)[:8]
+        if not files:
+            self.show_reply("Ainda sem conversas guardadas.")
+            return
+        self.reply_box.hide()
+        matches = []
+        for f in files:
+            preview = "Conversa guardada"
+            try:
+                lines = [l.strip() for l in f.read_text(encoding="utf-8").splitlines() if l.strip() and not l.startswith("#")]
+                if lines:
+                    preview = lines[0][:70]
+            except OSError:
+                pass
+            matches.append(("chat", f.stem, preview, "document-open-recent", f.stem))
+        self.results = matches
+        self._last_match_keys = None
+        for child in self.listbox.get_children():
+            self.listbox.remove(child)
+        for _, title, sub, icon_name, _ in matches:
+            row = Gtk.ListBoxRow()
+            hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+            ico = Gtk.Image.new_from_icon_name(icon_name, Gtk.IconSize.LARGE_TOOLBAR)
+            ico.set_pixel_size(20)
+            hbox.pack_start(ico, False, False, 0)
+            box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=1)
+            t_lbl = Gtk.Label(label=title, xalign=0)
+            t_lbl.get_style_context().add_class("row-title")
+            s_lbl = Gtk.Label(label=sub, xalign=0)
+            s_lbl.set_ellipsize(Pango.EllipsizeMode.END)
+            s_lbl.set_max_width_chars(70)
+            s_lbl.get_style_context().add_class("row-sub")
+            box.pack_start(t_lbl, False, False, 0)
+            box.pack_start(s_lbl, False, False, 0)
+            hbox.pack_start(box, True, True, 0)
+            row.add(hbox)
+            self.listbox.add(row)
+        self.divider.show()
+        self.list_scroll.show_all()
+        first = self.listbox.get_row_at_index(0)
+        if first:
+            self.listbox.select_row(first)
+
     def on_entry_key_press(self, _, event):
+        if (event.state & Gdk.ModifierType.CONTROL_MASK) and event.keyval in (Gdk.KEY_h, Gdk.KEY_H):
+            self.show_chats_history()
+            return True
         if event.keyval in (Gdk.KEY_Return, Gdk.KEY_KP_Enter):
             if event.state & Gdk.ModifierType.SHIFT_MASK:
                 return False
@@ -894,6 +1093,12 @@ class SpotlightWindow(Gtk.Window):
             end_iter = self.entry_buf.get_end_iter()
             self.entry_buf.place_cursor(end_iter)
             self.entry.grab_focus()
+        elif kind == "chat":
+            self.current_chat_id = payload
+            chat_path = HOME / ".ai-os" / "chats" / f"{payload}.md"
+            if chat_path.exists():
+                self.show_reply(chat_path.read_text(encoding="utf-8")[-3000:])
+            self.clear_query()
         elif kind == "file":
             subprocess.Popen(["xdg-open", payload])
             self.clear_query()

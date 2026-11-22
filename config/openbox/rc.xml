@@ -43,6 +43,12 @@
     <keybind key="A-F4">
       <action name="Close"/>
     </keybind>
+    <!-- Super + L: Bloquear ecrã -->
+    <keybind key="W-l">
+      <action name="Execute">
+        <command>i3lock -c 0f1117</command>
+      </action>
+    </keybind>
   </keyboard>
   <applications>
     <application class="AISpotlight">

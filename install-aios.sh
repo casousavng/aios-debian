@@ -9,7 +9,7 @@ echo "=== [2/6] Instalar Xorg, Openbox, PCManFM, Spotlight GTK3 e utilitários d
 sudo DEBIAN_FRONTEND=noninteractive apt-get install -y \
   xorg xinit openbox pcmanfm picom wmctrl x11-xserver-utils papirus-icon-theme librsvg2-common \
   python3-gi python3-gi-cairo python3-cairo gir1.2-gtk-3.0 gir1.2-webkit2-4.1 python3-markdown spice-vdagent \
-  network-manager cups brightnessctl pipewire wireplumber dunst libnotify-bin podman \
+  network-manager cups brightnessctl pipewire wireplumber dunst libnotify-bin podman ufw i3lock \
   python3 python3-fastapi python3-uvicorn python3-psutil \
   curl git libglib2.0-bin xterm zram-tools
 
