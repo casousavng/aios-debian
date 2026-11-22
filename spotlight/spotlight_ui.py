@@ -58,7 +58,8 @@ window.spotlight-win, window.topbar-win {
     color: #7dd3fc;
     font-size: 14px;
     font-weight: 700;
-    margin-right: 6px;
+    margin: 0;
+    padding: 0;
 }
 button.win-dot {
     background-image: none;
@@ -111,12 +112,16 @@ button.status-trigger {
     background: transparent;
     border: none;
     box-shadow: none;
-    padding: 0 4px;
+    padding: 0 2px;
     margin: 0;
+    min-width: 0;
+    min-height: 0;
 }
-button.status-trigger:hover {
-    background-color: rgba(255, 255, 255, 0.08);
-    border-radius: 6px;
+button.status-trigger:hover, button.status-trigger:active {
+    background-image: none;
+    background: transparent;
+    border: none;
+    box-shadow: none;
 }
 .spotlight-card {
     background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.16) 0%, rgba(20, 26, 34, 0.08) 100%);
@@ -520,8 +525,10 @@ class TopBarWindow(Gtk.Window):
         self.win_popover = WindowsPopover()
         self.logo_btn = Gtk.Button()
         self.logo_btn.set_can_focus(False)
+        self.logo_btn.set_valign(Gtk.Align.CENTER)
         self.logo_btn.get_style_context().add_class("status-trigger")
         self.logo_lbl = Gtk.Label(label="◉")
+        self.logo_lbl.set_valign(Gtk.Align.CENTER)
         self.logo_lbl.get_style_context().add_class("topbar-logo")
         self.logo_btn.add(self.logo_lbl)
         self.logo_btn.set_tooltip_text("Mostrar todas as janelas abertas")
