@@ -283,6 +283,7 @@ IGNORED_DESKTOP_IDS = {
 
 
 SLASH_COMMANDS = [
+    ("/usage", "Ver limites e consumo atual da subscrição agy", "ask_now:/usage"),
     ("/model ", "Escolher e ativar modelo do agy", "fill:/model "),
     ("/mode ", "Alternar modo de execução (auto, accept-edits, plan)", "fill:/mode "),
     ("/models", "Listar todos os modelos do agy", "ask_now:/models"),

@@ -146,11 +146,18 @@ def ask(req: PromptRequest):
             cmd = [agent_bin, sub, "list"] if sub == "mcp" else [agent_bin, sub]
         else:
             cmd = [agent_bin, "--mode", "auto", "--dangerously-skip-permissions"]
-            if req.chat_id:
+            if req.chat_id and prompt != "/usage":
                 cmd.append("--continue")
             cmd.extend(["-p", req.prompt])
         proc = subprocess.run(cmd, cwd=str(HOME), env=env, capture_output=True, text=True)
         reply = proc.stdout.strip() or proc.stderr.strip() or "Concluído."
+        if prompt == "/usage" and "\t" in reply:
+            rows = [r.split("\t") for r in reply.splitlines() if "\t" in r]
+            md = ["| Grupo | Limite | Restante | Reset |", "|---|---|---|---|"]
+            for cols in rows:
+                cols = (cols + ["", "", "", ""])[:4]
+                md.append("| " + " | ".join(c.strip() for c in cols) + " |")
+            reply = "\n".join(md)
         (LOGS_DIR / "last_action.log").write_text(proc.stdout + "\n" + proc.stderr, encoding="utf-8")
     else:
         reply = (
@@ -194,7 +201,7 @@ def ask_stream(req: PromptRequest):
             yield json.dumps({"chat_id": chat_id, "reply": msg, "done": True}) + "\n"
             return
 
-        if Path(agent_bin).name == "opencode" or prompt.startswith(("/model ", "/mode ")) or prompt in ("/models", "/agents", "/mcp", "/help", "/changelog"):
+        if Path(agent_bin).name == "opencode" or prompt.startswith(("/model ", "/mode ")) or prompt in ("/usage", "/models", "/agents", "/mcp", "/help", "/changelog"):
             res = ask(req)
             yield json.dumps({"chat_id": res["chat_id"], "reply": res["reply"], "done": True}) + "\n"
             return
