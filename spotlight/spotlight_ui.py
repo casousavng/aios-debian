@@ -340,6 +340,74 @@ def load_desktop_apps():
     return apps
 
 
+class WindowsPopover(Gtk.Window):
+    def __init__(self):
+        super().__init__(type=Gtk.WindowType.POPUP)
+        self.set_decorated(False)
+        self.set_keep_above(True)
+        self.set_app_paintable(True)
+        screen = self.get_screen()
+        visual = screen.get_rgba_visual()
+        if visual and screen.is_composited():
+            self.set_visual(visual)
+        self.connect("draw", clear_transparent)
+
+        self.card = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
+        self.card.get_style_context().add_class("popover-card")
+        self.card.set_size_request(260, -1)
+        self.add(self.card)
+
+    def toggle_at(self, geom, wins):
+        if self.is_visible():
+            self.hide()
+            return
+        for child in self.card.get_children():
+            self.card.remove(child)
+
+        hdr = Gtk.Label(label="Janelas Abertas", xalign=0)
+        hdr.get_style_context().add_class("pop-title")
+        self.card.pack_start(hdr, False, False, 2)
+
+        if not wins:
+            empty = Gtk.Label(label="Nenhuma janela aberta", xalign=0)
+            empty.get_style_context().add_class("pop-sub")
+            self.card.pack_start(empty, False, False, 2)
+        else:
+            for wid, app_name, title, is_active in wins:
+                low = app_name.lower()
+                if "chromium" in low:
+                    icon_name = "web-browser"
+                elif "pcmanfm" in low:
+                    icon_name = "system-file-manager"
+                elif "xterm" in low:
+                    icon_name = "utilities-terminal"
+                elif "litemd" in low:
+                    icon_name = "text-x-generic"
+                else:
+                    icon_name = "application-x-executable"
+
+                btn = Gtk.Button()
+                btn.get_style_context().add_class("reply-btn")
+                box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+                ico = Gtk.Image.new_from_icon_name(icon_name, Gtk.IconSize.MENU)
+                ico.set_pixel_size(16)
+                lbl = Gtk.Label(label=title, xalign=0)
+                lbl.set_ellipsize(Pango.EllipsizeMode.END)
+                lbl.set_max_width_chars(30)
+                box.pack_start(ico, False, False, 0)
+                box.pack_start(lbl, True, True, 0)
+                if is_active:
+                    dot = Gtk.Label(label="●")
+                    dot.get_style_context().add_class("topbar-logo")
+                    box.pack_end(dot, False, False, 0)
+                btn.add(box)
+                btn.connect("clicked", lambda _, w=wid: (self.hide(), subprocess.Popen(["wmctrl", "-i", "-a", w])))
+                self.card.pack_start(btn, False, False, 0)
+
+        self.move(geom.x + 10, geom.y + 34)
+        self.show_all()
+
+
 class ControlPopover(Gtk.Window):
     def __init__(self):
         super().__init__(type=Gtk.WindowType.POPUP)
@@ -448,9 +516,16 @@ class TopBarWindow(Gtk.Window):
         bar.set_size_request(geom.width, 28)
         self.add(bar)
 
+        self.win_popover = WindowsPopover()
+        self.logo_btn = Gtk.Button()
+        self.logo_btn.set_can_focus(False)
+        self.logo_btn.get_style_context().add_class("status-trigger")
         self.logo_lbl = Gtk.Label(label="◉")
         self.logo_lbl.get_style_context().add_class("topbar-logo")
-        bar.pack_start(self.logo_lbl, False, False, 0)
+        self.logo_btn.add(self.logo_lbl)
+        self.logo_btn.set_tooltip_text("Mostrar todas as janelas abertas")
+        self.logo_btn.connect("clicked", lambda *_: self.win_popover.toggle_at(geom, self._last_windows or []))
+        bar.pack_start(self.logo_btn, False, False, 0)
 
         self.dots_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=4)
         bar.pack_start(self.dots_box, False, False, 0)
