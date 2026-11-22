@@ -24,15 +24,25 @@
     <right>0</right>
   </margins>
   <keyboard>
-    <!-- Super + Espaço ou Alt + Espaço: Mostra/Esconde o Spotlight nativo -->
+    <!-- Super/Alt/Ctrl + Espaço: Foca o Spotlight nativo -->
     <keybind key="W-space">
       <action name="Execute">
-        <command>pkill -USR1 -f spotlight_ui.py || python3 /opt/ai-os/spotlight/spotlight_ui.py</command>
+        <command>pkill -USR1 -f '^python3 /opt/ai-os/spotlight/spotlight_ui.py'</command>
       </action>
     </keybind>
     <keybind key="A-space">
       <action name="Execute">
-        <command>pkill -USR1 -f spotlight_ui.py || python3 /opt/ai-os/spotlight/spotlight_ui.py</command>
+        <command>pkill -USR1 -f '^python3 /opt/ai-os/spotlight/spotlight_ui.py'</command>
+      </action>
+    </keybind>
+    <keybind key="A-nobreakspace">
+      <action name="Execute">
+        <command>pkill -USR1 -f '^python3 /opt/ai-os/spotlight/spotlight_ui.py'</command>
+      </action>
+    </keybind>
+    <keybind key="C-space">
+      <action name="Execute">
+        <command>pkill -USR1 -f '^python3 /opt/ai-os/spotlight/spotlight_ui.py'</command>
       </action>
     </keybind>
     <!-- Alt + Tab: Alterna entre janelas abertas -->
