@@ -379,6 +379,10 @@ class WindowsPopover(Gtk.Window):
         self.card.set_size_request(260, -1)
         self.add(self.card)
 
+    def show_at(self, geom, wins):
+        if not self.is_visible():
+            self.toggle_at(geom, wins)
+
     def toggle_at(self, geom, wins):
         if self.is_visible():
             self.hide()
@@ -552,7 +556,9 @@ class TopBarWindow(Gtk.Window):
         self.logo_lbl.set_valign(Gtk.Align.CENTER)
         self.logo_lbl.get_style_context().add_class("topbar-logo")
         self.logo_btn.add(self.logo_lbl)
-        self.logo_btn.set_tooltip_text("Mostrar todas as janelas abertas")
+        self.logo_btn.set_tooltip_text(t("show_windows_tip"))
+        self.logo_btn.add_events(Gdk.EventMask.ENTER_NOTIFY_MASK)
+        self.logo_btn.connect("enter-notify-event", lambda *_: (self.win_popover.show_at(geom, self._last_windows or []), False)[1])
         self.logo_btn.connect("clicked", lambda *_: self.win_popover.toggle_at(geom, self._last_windows or []))
         bar.pack_start(self.logo_btn, False, False, 0)
 
@@ -1074,7 +1080,7 @@ class SpotlightWindow(Gtk.Window):
                 ("slash", cmd, desc, "utilities-terminal", action)
                 for cmd, desc, action in get_slash_commands()
                 if q in cmd.lower() or q.lstrip("/") in desc.lower()
-            ][:8]
+            ][:15]
 
         # If prompt contains @ or slash with args, pass directly to agy
         if q.startswith("/") or "@" in q:
@@ -1427,6 +1433,9 @@ class SpotlightWindow(Gtk.Window):
             target = self.listbox.get_row_at_index(nxt)
             if target:
                 self.listbox.select_row(target)
+                alloc = target.get_allocation()
+                vadj = self.list_scroll.get_vadjustment()
+                vadj.clamp_page(alloc.y, alloc.y + alloc.height)
             return True
         return False
 
