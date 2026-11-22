@@ -1,0 +1,41 @@
+/* AI-OS Unified Dark Slate + Cyan-Teal GTK3 Theme */
+headerbar, .titlebar {
+    background-color: #161c26;
+    background-image: none;
+    color: #f1f5f9;
+    border-bottom: 1px solid #263040;
+}
+
+menubar, toolbar, .primary-toolbar {
+    background-color: #141922;
+    background-image: none;
+    color: #cbd5e1;
+    border-bottom: 1px solid #1f2735;
+}
+
+placessidebar, .sidebar, treeview.view {
+    background-color: #11151c;
+    color: #e2e8f0;
+}
+
+treeview.view:selected, placessidebar row:selected, iconview:selected {
+    background-color: rgba(103, 232, 249, 0.22);
+    color: #ffffff;
+}
+
+statusbar {
+    background-color: #12161e;
+    color: #94a3b8;
+    border-top: 1px solid #1f2735;
+}
+
+scrollbar slider {
+    background-color: rgba(148, 163, 184, 0.35);
+    border-radius: 4px;
+    min-width: 6px;
+    min-height: 6px;
+}
+
+scrollbar slider:hover {
+    background-color: rgba(103, 232, 249, 0.65);
+}

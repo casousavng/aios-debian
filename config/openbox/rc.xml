@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<openbox_config xmlns="http://openbox.org/3.4/rc">
+  <resistance>
+    <strength>10</strength>
+    <screen_edge_strength>20</screen_edge_strength>
+  </resistance>
+  <focus>
+    <focusNew>yes</focusNew>
+    <followMouse>no</followMouse>
+  </focus>
+  <desktops>
+    <number>1</number>
+  </desktops>
+  <theme>
+    <name>AI-OS-Glass</name>
+    <titleLayout>LIMC</titleLayout>
+    <keepBorder>yes</keepBorder>
+    <animateIconify>no</animateIconify>
+  </theme>
+  <margins>
+    <top>28</top>
+    <bottom>0</bottom>
+    <left>0</left>
+    <right>0</right>
+  </margins>
+  <keyboard>
+    <!-- Super + Espaço ou Alt + Espaço: Mostra/Esconde o Spotlight nativo -->
+    <keybind key="W-space">
+      <action name="Execute">
+        <command>pkill -USR1 -f spotlight_ui.py || python3 /opt/ai-os/spotlight/spotlight_ui.py</command>
+      </action>
+    </keybind>
+    <keybind key="A-space">
+      <action name="Execute">
+        <command>pkill -USR1 -f spotlight_ui.py || python3 /opt/ai-os/spotlight/spotlight_ui.py</command>
+      </action>
+    </keybind>
+    <!-- Alt + Tab: Alterna entre janelas abertas -->
+    <keybind key="A-Tab">
+      <action name="NextWindow"/>
+    </keybind>
+    <!-- Alt + F4: Fecha janela ativa -->
+    <keybind key="A-F4">
+      <action name="Close"/>
+    </keybind>
+  </keyboard>
+  <applications>
+    <application class="AISpotlight">
+      <decor>no</decor>
+      <skip_taskbar>yes</skip_taskbar>
+      <layer>above</layer>
+    </application>
+  </applications>
+</openbox_config>

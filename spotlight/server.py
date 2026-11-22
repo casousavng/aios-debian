@@ -1,0 +1,193 @@
+#!/usr/bin/env python3
+import json
+import os
+import subprocess
+import datetime
+from pathlib import Path
+from fastapi import FastAPI
+from fastapi.responses import HTMLResponse, StreamingResponse
+from pydantic import BaseModel
+import psutil
+import uvicorn
+
+app = FastAPI()
+BASE_DIR = Path("/opt/ai-os/spotlight")
+HOME = Path.home()
+CHATS_DIR = HOME / ".ai-os" / "chats"
+LOGS_DIR = HOME / ".ai-os" / "logs"
+CHATS_DIR.mkdir(parents=True, exist_ok=True)
+LOGS_DIR.mkdir(parents=True, exist_ok=True)
+
+class PromptRequest(BaseModel):
+    prompt: str
+    chat_id: str | None = None
+
+def get_wifi_status() -> str:
+    try:
+        out = subprocess.check_output(
+            ["nmcli", "-t", "-f", "ACTIVE,SSID", "dev", "wifi"],
+            stderr=subprocess.DEVNULL, text=True
+        )
+        for line in out.splitlines():
+            if line.startswith("yes:"):
+                return line.split(":", 1)[1] or "Wi-Fi"
+        dev_out = subprocess.check_output(
+            ["nmcli", "-t", "-f", "TYPE,STATE", "dev"],
+            stderr=subprocess.DEVNULL, text=True
+        )
+        for line in dev_out.splitlines():
+            if ":connected" in line:
+                return "Online"
+        return "Offline"
+    except Exception:
+        return "N/D"
+
+@app.get("/", response_class=HTMLResponse)
+def index():
+    return (BASE_DIR / "index.html").read_text(encoding="utf-8")
+
+@app.get("/api/status")
+def status():
+    bat = psutil.sensors_battery()
+    bat_str = f"{int(bat.percent)}%" if bat else "AC"
+    now = datetime.datetime.now().strftime("%H:%M")
+    return {"battery": bat_str, "wifi": get_wifi_status(), "time": now}
+
+@app.get("/api/chats")
+def list_chats():
+    files = sorted(CHATS_DIR.glob("*.md"), reverse=True)
+    return [{"id": f.stem, "title": f.stem} for f in files[:25]]
+
+@app.get("/api/chats/{chat_id}")
+def read_chat(chat_id: str):
+    path = CHATS_DIR / f"{chat_id}.md"
+    if not path.exists():
+        return {"content": ""}
+    return {"content": path.read_text(encoding="utf-8")}
+
+@app.post("/api/ask")
+def ask(req: PromptRequest):
+    prompt = req.prompt.strip()
+    if prompt in ("/new", "/clear"):
+        return {"chat_id": None, "reply": "Nova conversa agy iniciada."}
+
+    chat_id = req.chat_id or datetime.datetime.now().strftime("%Y-%m-%d_%H%M%S")
+    chat_file = CHATS_DIR / f"{chat_id}.md"
+
+    with chat_file.open("a", encoding="utf-8") as f:
+        f.write(f"\n### Utilizador\n{req.prompt}\n")
+
+    # Deteta o agente CLI instalado (agy ou opencode), incluindo ~/.local/bin
+    env = os.environ.copy()
+    extra_bins = f"{HOME / '.local/bin'}:{HOME / '.opencode/bin'}"
+    env["PATH"] = f"{extra_bins}:{env.get('PATH', '')}"
+
+    agent_bin = None
+    for candidate in ["agy", "opencode"]:
+        found = subprocess.run(
+            ["which", candidate], env=env, capture_output=True, text=True
+        )
+        if found.returncode == 0:
+            agent_bin = found.stdout.strip()
+            break
+
+    if agent_bin:
+        if Path(agent_bin).name == "opencode":
+            cmd = [agent_bin, "run", req.prompt]
+        elif prompt in ("/models", "/agents", "/mcp", "/help", "/changelog"):
+            sub = prompt.lstrip("/")
+            cmd = [agent_bin, sub, "list"] if sub == "mcp" else [agent_bin, sub]
+        else:
+            cmd = [agent_bin, "--mode", "auto", "--dangerously-skip-permissions"]
+            if req.chat_id:
+                cmd.append("--continue")
+            cmd.extend(["-p", req.prompt])
+        proc = subprocess.run(cmd, cwd=str(HOME), env=env, capture_output=True, text=True)
+        reply = proc.stdout.strip() or proc.stderr.strip() or "Concluído."
+        (LOGS_DIR / "last_action.log").write_text(proc.stdout + "\n" + proc.stderr, encoding="utf-8")
+    else:
+        reply = (
+            "⚠️ Nenhum agente CLI (`agy` ou `opencode`) encontrado no PATH.\n"
+            "Instala e autentica o teu agente CLI na máquina para ativar a execução autónoma."
+        )
+
+    with chat_file.open("a", encoding="utf-8") as f:
+        f.write(f"\n### AI-OS\n{reply}\n")
+
+    return {"chat_id": chat_id, "reply": reply}
+
+
+@app.post("/api/ask_stream")
+def ask_stream(req: PromptRequest):
+    prompt = req.prompt.strip()
+    if prompt in ("/new", "/clear"):
+        def _reset():
+            yield json.dumps({"chat_id": None, "reply": "Nova conversa agy iniciada.", "done": True}) + "\n"
+        return StreamingResponse(_reset(), media_type="application/x-ndjson")
+
+    chat_id = req.chat_id or datetime.datetime.now().strftime("%Y-%m-%d_%H%M%S")
+    chat_file = CHATS_DIR / f"{chat_id}.md"
+    with chat_file.open("a", encoding="utf-8") as f:
+        f.write(f"\n### Utilizador\n{req.prompt}\n")
+
+    env = os.environ.copy()
+    extra_bins = f"{HOME / '.local/bin'}:{HOME / '.opencode/bin'}"
+    env["PATH"] = f"{extra_bins}:{env.get('PATH', '')}"
+
+    agent_bin = None
+    for candidate in ["agy", "opencode"]:
+        found = subprocess.run(["which", candidate], env=env, capture_output=True, text=True)
+        if found.returncode == 0:
+            agent_bin = found.stdout.strip()
+            break
+
+    def _stream():
+        if not agent_bin:
+            msg = "⚠️ Nenhum agente CLI (`agy` ou `opencode`) encontrado no PATH."
+            yield json.dumps({"chat_id": chat_id, "reply": msg, "done": True}) + "\n"
+            return
+
+        if Path(agent_bin).name == "opencode" or prompt in ("/models", "/agents", "/mcp", "/help", "/changelog"):
+            res = ask(req)
+            yield json.dumps({"chat_id": res["chat_id"], "reply": res["reply"], "done": True}) + "\n"
+            return
+
+        cmd = [agent_bin, "--mode", "auto", "--dangerously-skip-permissions", "--output-format", "stream-json"]
+        if req.chat_id:
+            cmd.append("--continue")
+        cmd.extend(["-p", req.prompt])
+
+        proc = subprocess.Popen(
+            cmd, cwd=str(HOME), env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
+        )
+        full_reply = []
+        final_text = ""
+        for raw_line in proc.stdout:
+            raw_line = raw_line.strip()
+            if not raw_line:
+                continue
+            try:
+                ev = json.loads(raw_line)
+            except Exception:
+                continue
+            etype = ev.get("event")
+            if etype == "step_update":
+                su = ev.get("step_update", {})
+                delta = su.get("text_delta")
+                if delta:
+                    full_reply.append(delta)
+                    yield json.dumps({"delta": delta, "done": False}) + "\n"
+            elif etype == "result":
+                final_text = ev.get("result", {}).get("response", "").strip()
+
+        proc.wait()
+        reply = final_text or "".join(full_reply).strip() or proc.stderr.read().strip() or "Concluído."
+        with chat_file.open("a", encoding="utf-8") as f:
+            f.write(f"\n### AI-OS\n{reply}\n")
+        (LOGS_DIR / "last_action.log").write_text(reply, encoding="utf-8")
+        yield json.dumps({"chat_id": chat_id, "reply": reply, "done": True}) + "\n"
+
+    return StreamingResponse(_stream(), media_type="application/x-ndjson")
+
+if __name__ == "__main__":
+    uvicorn.run(app, host="127.0.0.1", port=8765, log_level="warning")

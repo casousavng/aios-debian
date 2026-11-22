@@ -1,0 +1,12 @@
+# Compositor leve (cantos arredondados/transparência Spotlight) + agente SPICE + notificações
+picom --config "$HOME/.config/picom.conf" -b &
+spice-vdagent &
+dunst &
+
+# Ícones/pastas reais no ambiente de trabalho (sem painéis nem barras)
+pcmanfm --desktop &
+
+# Aplica wallpaper dinâmico e arranca Spotlight fixo no fundo do ecrã
+sleep 1
+python3 /opt/ai-os/spotlight/wallpaper.py &
+python3 /opt/ai-os/spotlight/spotlight_ui.py &

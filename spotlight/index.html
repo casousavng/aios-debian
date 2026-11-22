@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8" />
+  <title>AI-OS Spotlight</title>
+  <style>
+    :root { --bg: #14161a; --panel: #1d2026; --text: #eceff4; --muted: #8b949e; --accent: #58a6ff; }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, -apple-system, sans-serif; }
+    body { background: var(--bg); color: var(--text); height: 100vh; display: flex; flex-direction: column; border: 1px solid #2d333b; }
+    header { display: flex; justify-content: space-between; align-items: center; padding: 8px 14px; background: var(--panel); font-size: 12px; color: var(--muted); border-bottom: 1px solid #2d333b; }
+    .indicators span { margin-left: 12px; }
+    .main { display: flex; flex: 1; overflow: hidden; }
+    aside { width: 175px; background: #181b20; border-right: 1px solid #2d333b; padding: 8px; overflow-y: auto; }
+    aside button { width: 100%; text-align: left; background: transparent; border: none; color: var(--muted); padding: 6px 8px; border-radius: 6px; cursor: pointer; font-size: 12px; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    aside button:hover { background: #262b33; color: var(--text); }
+    aside button.new-chat { color: var(--accent); font-weight: 600; border: 1px solid #2d333b; margin-bottom: 10px; }
+    .chat-area { flex: 1; display: flex; flex-direction: column; }
+    #messages { flex: 1; padding: 14px; overflow-y: auto; font-size: 14px; line-height: 1.5; white-space: pre-wrap; }
+    .msg-user { color: var(--accent); font-weight: 600; margin-top: 10px; }
+    .msg-ai { color: var(--text); background: var(--panel); padding: 10px 12px; border-radius: 8px; margin-top: 4px; }
+    form { display: flex; padding: 10px; background: var(--panel); border-top: 1px solid #2d333b; gap: 8px; }
+    input { flex: 1; background: var(--bg); border: 1px solid #30363d; color: var(--text); padding: 10px 12px; border-radius: 8px; font-size: 14px; outline: none; }
+    input:focus { border-color: var(--accent); }
+    button.send { background: var(--accent); color: #0d1117; border: none; padding: 0 16px; border-radius: 8px; font-weight: 600; cursor: pointer; }
+  </style>
+</head>
+<body>
+  <header>
+    <div><strong>AI-OS</strong> · Spotlight (Super + Espaço)</div>
+    <div class="indicators">
+      <span id="wifi">Wi-Fi: ...</span>
+      <span id="bat">Bat: ...</span>
+      <span id="clock">--:--</span>
+    </div>
+  </header>
+  <div class="main">
+    <aside>
+      <button class="new-chat" onclick="newChat()">+ Nova Conversa</button>
+      <div id="history"></div>
+    </aside>
+    <div class="chat-area">
+      <div id="messages">Como posso ajudar a gerir o sistema ou os teus ficheiros hoje?</div>
+      <form onsubmit="sendPrompt(event)">
+        <input id="prompt" type="text" placeholder="Ex: Cria um plano em Markdown ou liga à impressora..." autofocus autocomplete="off" />
+        <button class="send" type="submit">Enviar</button>
+      </form>
+    </div>
+  </div>
+  <script>
+    let currentChatId = null;
+
+    async function refreshStatus() {
+      const res = await fetch('/api/status');
+      const data = await res.json();
+      document.getElementById('wifi').textContent = 'Wi-Fi: ' + data.wifi;
+      document.getElementById('bat').textContent = 'Bat: ' + data.battery;
+      document.getElementById('clock').textContent = data.time;
+    }
+
+    async function loadHistory() {
+      const res = await fetch('/api/chats');
+      const chats = await res.json();
+      const box = document.getElementById('history');
+      box.innerHTML = '';
+      chats.forEach(c => {
+        const b = document.createElement('button');
+        b.textContent = c.title;
+        b.onclick = async () => {
+          currentChatId = c.id;
+          const r = await fetch('/api/chats/' + c.id);
+          const d = await r.json();
+          document.getElementById('messages').textContent = d.content;
+        };
+        box.appendChild(b);
+      });
+    }
+
+    function newChat() {
+      currentChatId = null;
+      document.getElementById('messages').textContent = 'Nova sessão pronta.';
+      document.getElementById('prompt').focus();
+    }
+
+    async function sendPrompt(e) {
+      e.preventDefault();
+      const input = document.getElementById('prompt');
+      const text = input.value.trim();
+      if (!text) return;
+      input.value = '';
+      const box = document.getElementById('messages');
+      box.innerHTML += `<div class="msg-user">Tu: ${text}</div><div class="msg-ai" id="loading">A executar...</div>`;
+      box.scrollTop = box.scrollHeight;
+
+      const res = await fetch('/api/ask', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({prompt: text, chat_id: currentChatId})
+      });
+      const data = await res.json();
+      currentChatId = data.chat_id;
+      document.getElementById('loading').remove();
+      box.innerHTML += `<div class="msg-ai">${data.reply}</div>`;
+      box.scrollTop = box.scrollHeight;
+      loadHistory();
+    }
+
+    refreshStatus();
+    loadHistory();
+    setInterval(refreshStatus, 10000);
+  </script>
+</body>
+</html>
