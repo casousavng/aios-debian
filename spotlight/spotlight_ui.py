@@ -268,11 +268,27 @@ def clear_transparent(widget, ctx):
     return False
 
 
+IGNORED_DESKTOP_IDS = {
+    "xterm.desktop",
+    "debian-xterm.desktop",
+    "debian-uxterm.desktop",
+    "uxterm.desktop",
+    "pcmanfm-desktop-pref.desktop",
+    "obconf.desktop",
+    "picom.desktop",
+    "vim.desktop",
+    "htop.desktop",
+}
+
+
 def load_desktop_apps():
     apps = []
+    seen = set()
     for folder in ("/usr/share/applications", str(HOME / ".local/share/applications")):
         for path in glob.glob(os.path.join(folder, "*.desktop")):
-            name, exec_cmd, icon_name, nodisplay = None, None, "application-x-executable", False
+            if os.path.basename(path) in IGNORED_DESKTOP_IDS:
+                continue
+            name, exec_cmd, icon_name, hidden, is_terminal = None, None, "application-x-executable", False, False
             try:
                 with open(path, encoding="utf-8", errors="ignore") as f:
                     in_entry = False
@@ -290,9 +306,12 @@ def load_desktop_apps():
                             exec_cmd = " ".join(p for p in raw.split() if not p.startswith("%"))
                         elif line.startswith("Icon="):
                             icon_name = line.split("=", 1)[1]
-                        elif line == "NoDisplay=true":
-                            nodisplay = True
-                if name and exec_cmd and not nodisplay:
+                        elif line in ("NoDisplay=true", "Hidden=true"):
+                            hidden = True
+                        elif line == "Terminal=true":
+                            is_terminal = True
+                if name and exec_cmd and not hidden and not is_terminal and name.lower() not in seen:
+                    seen.add(name.lower())
                     apps.append((name, exec_cmd, icon_name))
             except OSError:
                 pass
