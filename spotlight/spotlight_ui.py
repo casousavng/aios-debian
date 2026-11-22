@@ -602,6 +602,8 @@ class SpotlightWindow(Gtk.Window):
         self.listbox.set_selection_mode(Gtk.SelectionMode.SINGLE)
         self.listbox.connect("row-activated", self.on_row_activated)
         self.list_scroll = Gtk.ScrolledWindow()
+        self.list_scroll.set_shadow_type(Gtk.ShadowType.NONE)
+        self.list_scroll.get_style_context().add_class("clean-scroll")
         self.list_scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
         self.list_scroll.set_max_content_height(260)
         self.list_scroll.set_propagate_natural_height(True)
