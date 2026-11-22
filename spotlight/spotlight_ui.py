@@ -283,8 +283,9 @@ IGNORED_DESKTOP_IDS = {
 
 
 SLASH_COMMANDS = [
-    ("/models", "Listar modelos disponíveis no agy", "ask_now:/models"),
-    ("/model ", "Definir modelo ativo (ex: /model Gemini 4 Hydrogen (Medium))", "fill:/model "),
+    ("/model ", "Escolher e ativar modelo do agy", "fill:/model "),
+    ("/mode ", "Alternar modo de execução (auto, accept-edits, plan)", "fill:/mode "),
+    ("/models", "Listar todos os modelos do agy", "ask_now:/models"),
     ("/agents", "Listar agentes disponíveis no agy", "ask_now:/agents"),
     ("/mcp", "Listar servidores MCP configurados", "ask_now:/mcp"),
     ("/new", "Iniciar nova conversa limpa", "ask_now:/new"),
@@ -293,6 +294,12 @@ SLASH_COMMANDS = [
     ("/plan ", "Pedir plano antes de executar", "fill:/plan "),
     ("/changelog", "Ver novidades da versão do agy", "ask_now:/changelog"),
     ("/help", "Mostrar ajuda do agy CLI", "ask_now:/help"),
+]
+
+AGENT_MODES = [
+    ("auto", "Execução autónoma direta"),
+    ("accept-edits", "Aplica edições automaticamente"),
+    ("plan", "Planeia antes de alterar ficheiros"),
 ]
 
 
@@ -602,12 +609,14 @@ class SpotlightWindow(Gtk.Window):
         )
 
         self.apps = load_desktop_apps()
+        self.agy_models_cache = []
         self.current_chat_id = None
         self.last_reply_md = ""
         self.history = self._load_history()
         self.hist_idx = len(self.history)
         self.results = []
         self._last_match_keys = None
+        threading.Thread(target=self._prefetch_models, daemon=True).start()
 
         self.card = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
         self.card.get_style_context().add_class("spotlight-card")
@@ -860,6 +869,13 @@ class SpotlightWindow(Gtk.Window):
         threading.Thread(target=_fetch, daemon=True).start()
         return True
 
+    def _prefetch_models(self):
+        try:
+            with urllib.request.urlopen(f"{API_BASE}/api/agy/models", timeout=5) as r:
+                self.agy_models_cache = json.loads(r.read().decode())
+        except Exception:
+            pass
+
     def build_at_matches(self, token):
         q = token.lstrip("@").lower()
         matches = []
@@ -881,7 +897,8 @@ class SpotlightWindow(Gtk.Window):
         return matches
 
     def build_matches(self, query):
-        q = query.lower().strip()
+        q_raw = query.lower()
+        q = q_raw.strip()
         if not q:
             return []
 
@@ -889,6 +906,25 @@ class SpotlightWindow(Gtk.Window):
         last_word = query.split()[-1] if query.split() else ""
         if last_word.startswith("@"):
             return self.build_at_matches(last_word)
+
+        # Interactive sub-completion for /model <filter> and /mode <filter>
+        if q_raw.startswith("/model "):
+            filt = q_raw[7:].strip()
+            if not self.agy_models_cache:
+                self._prefetch_models()
+            return [
+                ("slash", m["label"], f"Ativar modelo ({m['id']})", "preferences-system", f"ask_now:/model {m['label']}")
+                for m in self.agy_models_cache
+                if not filt or filt in m["label"].lower() or filt in m["id"].lower()
+            ][:8]
+
+        if q_raw.startswith("/mode "):
+            filt = q_raw[6:].strip()
+            return [
+                ("slash", mode_id, desc, "preferences-system", f"ask_now:/mode {mode_id}")
+                for mode_id, desc in AGENT_MODES
+                if not filt or filt in mode_id
+            ]
 
         # If prompt starts with /, autocomplete agy slash commands
         if q.startswith("/") and " " not in q:
@@ -942,7 +978,8 @@ class SpotlightWindow(Gtk.Window):
             return
 
         self.reply_box.hide()
-        matches = self.build_matches(text)
+        query_for_match = raw.lstrip() if raw.lstrip().startswith("/") else text
+        matches = self.build_matches(query_for_match)
         if not matches:
             self.results = []
             if self._last_match_keys:

@@ -65,6 +65,29 @@ def read_chat(chat_id: str):
         return {"content": ""}
     return {"content": path.read_text(encoding="utf-8")}
 
+
+_MODELS_CACHE = None
+
+
+@app.get("/api/agy/models")
+def agy_models():
+    global _MODELS_CACHE
+    if _MODELS_CACHE is not None:
+        return _MODELS_CACHE
+    env = os.environ.copy()
+    env["PATH"] = f"{HOME / '.local/bin'}:{env.get('PATH', '')}"
+    try:
+        out = subprocess.check_output(["agy", "models"], env=env, text=True, stderr=subprocess.DEVNULL)
+        items = []
+        for line in out.splitlines():
+            if "\t" in line:
+                mid, label = line.split("\t", 1)
+                items.append({"id": mid.strip(), "label": label.strip()})
+        _MODELS_CACHE = items
+        return items
+    except Exception:
+        return []
+
 @app.post("/api/ask")
 def ask(req: PromptRequest):
     prompt = req.prompt.strip()
@@ -82,6 +105,18 @@ def ask(req: PromptRequest):
             return {"chat_id": req.chat_id, "reply": f"Modelo alterado para `{model_name}`."}
         except Exception as e:
             return {"chat_id": req.chat_id, "reply": f"Erro ao alterar modelo: {e}"}
+
+    if prompt.startswith("/mode "):
+        mode_val = prompt.split(None, 1)[1].strip()
+        cfg_path = HOME / ".gemini" / "antigravity-cli" / "settings.json"
+        try:
+            cfg = json.loads(cfg_path.read_text(encoding="utf-8")) if cfg_path.exists() else {}
+            cfg["agentMode"] = mode_val
+            cfg_path.parent.mkdir(parents=True, exist_ok=True)
+            cfg_path.write_text(json.dumps(cfg, indent=2), encoding="utf-8")
+            return {"chat_id": req.chat_id, "reply": f"Modo alterado para `{mode_val}`."}
+        except Exception as e:
+            return {"chat_id": req.chat_id, "reply": f"Erro ao alterar modo: {e}"}
 
     chat_id = req.chat_id or datetime.datetime.now().strftime("%Y-%m-%d_%H%M%S")
     chat_file = CHATS_DIR / f"{chat_id}.md"
@@ -159,7 +194,7 @@ def ask_stream(req: PromptRequest):
             yield json.dumps({"chat_id": chat_id, "reply": msg, "done": True}) + "\n"
             return
 
-        if Path(agent_bin).name == "opencode" or prompt.startswith("/model ") or prompt in ("/models", "/agents", "/mcp", "/help", "/changelog"):
+        if Path(agent_bin).name == "opencode" or prompt.startswith(("/model ", "/mode ")) or prompt in ("/models", "/agents", "/mcp", "/help", "/changelog"):
             res = ask(req)
             yield json.dumps({"chat_id": res["chat_id"], "reply": res["reply"], "done": True}) + "\n"
             return
