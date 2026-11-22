@@ -568,6 +568,14 @@ class TopBarWindow(Gtk.Window):
 
         self.popover = ControlPopover()
 
+        status_btn = Gtk.Button()
+        status_btn.set_can_focus(False)
+        status_btn.get_style_context().add_class("status-trigger")
+        status_btn.connect("clicked", lambda *_: self.popover.toggle_at(geom))
+        status_inner = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
+        status_btn.add(status_inner)
+        bar.pack_end(status_btn, False, False, 0)
+
         self.lang_btn = Gtk.Button(label=get_lang().upper())
         self.lang_btn.set_can_focus(False)
         self.lang_btn.set_valign(Gtk.Align.CENTER)
@@ -576,14 +584,6 @@ class TopBarWindow(Gtk.Window):
         self.on_lang_changed = None
         self.lang_btn.connect("clicked", self._toggle_lang)
         bar.pack_end(self.lang_btn, False, False, 0)
-
-        status_btn = Gtk.Button()
-        status_btn.set_can_focus(False)
-        status_btn.get_style_context().add_class("status-trigger")
-        status_btn.connect("clicked", lambda *_: self.popover.toggle_at(geom))
-        status_inner = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
-        status_btn.add(status_inner)
-        bar.pack_end(status_btn, False, False, 0)
 
         self.clock_lbl = Gtk.Label(label="--:--")
         self.clock_lbl.get_style_context().add_class("topbar-item")
