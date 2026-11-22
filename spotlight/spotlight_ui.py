@@ -125,6 +125,13 @@ textview.search-input, textview.search-input text {
     font-size: 15px;
     caret-color: #67e8f9;
 }
+scrolledwindow.clean-scroll, scrolledwindow.clean-scroll border,
+scrolledwindow.clean-scroll undershoot, scrolledwindow.clean-scroll overshoot {
+    border: none;
+    box-shadow: none;
+    background: transparent;
+    background-image: none;
+}
 .search-placeholder {
     color: rgba(241, 245, 249, 0.55);
     font-size: 15px;
@@ -511,6 +518,8 @@ class SpotlightWindow(Gtk.Window):
         top_row.pack_start(icon, False, False, 0)
 
         self.entry_scroll = Gtk.ScrolledWindow()
+        self.entry_scroll.set_shadow_type(Gtk.ShadowType.NONE)
+        self.entry_scroll.get_style_context().add_class("clean-scroll")
         self.entry_scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.EXTERNAL)
         self.entry_scroll.set_min_content_height(22)
         self.entry_scroll.set_max_content_height(24)
