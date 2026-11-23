@@ -738,7 +738,24 @@ class TopBarWindow(Gtk.Window):
         GLib.timeout_add(220, self.win_popover._maybe_hide)
         return False
 
+    def _confirm_lang_switch(self):
+        dlg = Gtk.MessageDialog(
+            transient_for=self,
+            flags=0,
+            message_type=Gtk.MessageType.WARNING,
+            buttons=Gtk.ButtonsType.NONE,
+            text=t("lang_confirm_title"),
+        )
+        dlg.format_secondary_text(t("lang_confirm_msg"))
+        dlg.add_button(t("cancel"), Gtk.ResponseType.CANCEL)
+        dlg.add_button(t("confirm"), Gtk.ResponseType.OK)
+        resp = dlg.run()
+        dlg.destroy()
+        return resp == Gtk.ResponseType.OK
+
     def _toggle_lang(self, *_):
+        if not self._confirm_lang_switch():
+            return
         nxt = "en" if get_lang() == "pt" else "pt"
         set_lang(nxt)
         self.apply_lang()
@@ -1497,6 +1514,8 @@ class SpotlightWindow(Gtk.Window):
 
     def send_to_ai(self, prompt):
         if prompt.strip().startswith("/lang "):
+            if self.topbar and not self.topbar._confirm_lang_switch():
+                return
             lang = set_lang(prompt.split(None, 1)[1].strip())
             if self.topbar:
                 self.topbar.apply_lang()
