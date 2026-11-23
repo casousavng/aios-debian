@@ -16,7 +16,7 @@ from fastapi.responses import HTMLResponse, StreamingResponse
 from pydantic import BaseModel
 import psutil
 import uvicorn
-from i18n import get_lang, t
+from i18n import get_lang, is_dangerous_prompt, t
 
 app = FastAPI()
 BASE_DIR = Path("/opt/ai-os/spotlight")
@@ -29,6 +29,7 @@ LOGS_DIR.mkdir(parents=True, exist_ok=True)
 class PromptRequest(BaseModel):
     prompt: str
     chat_id: str | None = None
+    confirmed: bool = False
 
 def get_wifi_status() -> str:
     try:
@@ -400,6 +401,10 @@ def ask(req: PromptRequest):
     if prompt in ("/new", "/clear"):
         return {"chat_id": None, "reply": t("new_chat")}
 
+    if is_dangerous_prompt(prompt) and not req.confirmed:
+        _write_audit(req.prompt, ["guardrail"], "blocked")
+        return {"chat_id": req.chat_id, "requires_confirmation": True, "reply": t("danger_blocked")}
+
     if prompt == "/update":
         upd_cmd = (
             "sudo apt-get update && "
@@ -525,6 +530,12 @@ def ask_stream(req: PromptRequest):
         def _reset():
             yield json.dumps({"chat_id": None, "reply": t("new_chat"), "done": True}) + "\n"
         return StreamingResponse(_reset(), media_type="application/x-ndjson")
+
+    if is_dangerous_prompt(prompt) and not req.confirmed:
+        _write_audit(req.prompt, ["guardrail"], "blocked")
+        def _blocked():
+            yield json.dumps({"chat_id": req.chat_id, "requires_confirmation": True, "reply": t("danger_blocked"), "done": True}) + "\n"
+        return StreamingResponse(_blocked(), media_type="application/x-ndjson")
 
     chat_id = req.chat_id or datetime.datetime.now().strftime("%Y-%m-%d_%H%M%S")
     chat_file = CHATS_DIR / f"{chat_id}.md"

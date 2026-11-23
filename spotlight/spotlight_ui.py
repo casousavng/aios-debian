@@ -13,7 +13,7 @@ from pathlib import Path
 import cairo
 import gi
 import markdown
-from i18n import get_config, get_lang, set_lang, t, update_config
+from i18n import get_config, get_lang, is_dangerous_prompt, set_lang, t, update_config
 
 gi.require_version("Gtk", "3.0")
 gi.require_version("Gdk", "3.0")
@@ -2537,6 +2537,29 @@ class SpotlightWindow(Gtk.Window):
         if prompt.strip() in ("/new", "/clear"):
             self.current_chat_id = None
             update_config(last_chat_id=None)
+
+        confirmed = False
+        if is_dangerous_prompt(prompt):
+            dlg = Gtk.MessageDialog(
+                transient_for=self,
+                flags=0,
+                message_type=Gtk.MessageType.WARNING,
+                buttons=Gtk.ButtonsType.NONE,
+                text=t("confirm_danger_title"),
+            )
+            dlg.format_secondary_text(t("confirm_danger_body", prompt=prompt[:180]))
+            dlg.add_button(t("cancel"), Gtk.ResponseType.CANCEL)
+            dlg.add_button(t("confirm_danger_btn"), Gtk.ResponseType.OK)
+            dlg.set_default_response(Gtk.ResponseType.CANCEL)
+            dlg.set_position(Gtk.WindowPosition.CENTER_ALWAYS)
+            resp = dlg.run()
+            dlg.destroy()
+            if resp != Gtk.ResponseType.OK:
+                self.show_reply(t("action_cancelled"))
+                self.entry.grab_focus()
+                return
+            confirmed = True
+
         self._pending_prompt = prompt
         self._cancelled = False
         run_id = getattr(self, "_active_run_id", 0) + 1
@@ -2556,7 +2579,7 @@ class SpotlightWindow(Gtk.Window):
             try:
                 req = urllib.request.Request(
                     f"{API_BASE}/api/ask_stream",
-                    data=json.dumps({"prompt": prompt, "chat_id": chat_id_snapshot}).encode(),
+                    data=json.dumps({"prompt": prompt, "chat_id": chat_id_snapshot, "confirmed": confirmed}).encode(),
                     headers={"Content-Type": "application/json"},
                     method="POST",
                 )

@@ -1,6 +1,7 @@
 """Lightweight bilingual (PT-PT / EN) localization for AI-OS."""
 import json
 import os
+import re
 from pathlib import Path
 
 CONFIG_PATH = Path.home() / ".ai-os" / "config.json"
@@ -123,6 +124,11 @@ STRINGS = {
         "activate_model": "Ativar modelo ({id})",
         "litemd_open": "Abrir",
         "litemd_empty": "# LiteMD\n\nClica em **Abrir** para escolher um ficheiro `.md`.",
+        "confirm_danger_title": "Confirmar ação sensível",
+        "confirm_danger_body": "Este pedido pode alterar ou remover ficheiros, pacotes ou estado crítico do sistema:\n\n«{prompt}»\n\nQueres mesmo executar?",
+        "confirm_danger_btn": "Confirmar e Executar",
+        "action_cancelled": "Ação cancelada pelo utilizador.",
+        "danger_blocked": "⚠️ Ação sensível bloqueada: requer confirmação explícita.",
     },
     "en": {
         "placeholder": "Ask anything, / for AI, # for system...",
@@ -241,6 +247,11 @@ STRINGS = {
         "activate_model": "Activate model ({id})",
         "litemd_open": "Open",
         "litemd_empty": "# LiteMD\n\nClick **Open** to choose a `.md` file.",
+        "confirm_danger_title": "Confirm sensitive action",
+        "confirm_danger_body": "This request may modify or delete files, packages, or critical system state:\n\n\"{prompt}\"\n\nProceed anyway?",
+        "confirm_danger_btn": "Confirm & Run",
+        "action_cancelled": "Action cancelled by user.",
+        "danger_blocked": "⚠️ Sensitive action blocked: explicit confirmation required.",
     },
 }
 
@@ -305,3 +316,22 @@ def t(key: str, **kwargs):
     if isinstance(val, str) and kwargs:
         return val.format(**kwargs)
     return val
+
+
+_DANGER_PATTERNS = (
+    ("destructive_delete", re.compile(r"\brm\s+-[a-zA-Z]*[rf][a-zA-Z]*\b|\b(apagar|eliminar|deletar|delete|remove|wipe|shred)\s+(tudo|all|disco|disk|sistema|system|pasta\s+home|/\w*)", re.I)),
+    ("disk_format", re.compile(r"\b(mkfs|fdisk|parted|wipefs|dd\s+if=|formatar)\b", re.I)),
+    ("power_action", re.compile(r"\b(reboot|poweroff|shutdown|halt|reiniciar(\s+o)?\s+(sistema|pc|vm|máquina)|desligar(\s+o)?\s+(sistema|pc|vm|máquina))\b", re.I)),
+    ("pkg_remove", re.compile(r"\b(apt(-get)?\s+(remove|purge|autoremove)|dpkg\s+--(remove|purge)|desinstalar|uninstall)\b", re.I)),
+    ("sys_security", re.compile(r"\b(chmod\s+-R\s+777|chown\s+-R|ufw\s+disable|iptables\s+-F|userdel|visudo|systemctl\s+(stop|disable))\b", re.I)),
+)
+
+
+def is_dangerous_prompt(prompt: str) -> str | None:
+    p = (prompt or "").strip()
+    if not p or p in ("/new", "/clear", "/models", "/agents", "/mcp", "/help", "/changelog", "/usage", "/update"):
+        return None
+    for reason, pat in _DANGER_PATTERNS:
+        if pat.search(p):
+            return reason
+    return None
