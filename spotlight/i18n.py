@@ -332,7 +332,7 @@ def set_lang(lang: str) -> str:
         import subprocess
         subprocess.Popen(["sudo", "localectl", "set-locale", f"LANG={sys_locale}"])
         subprocess.Popen(
-            f"pkill -x pcmanfm; LANG={sys_locale} LC_ALL={sys_locale} setsid pcmanfm --desktop </dev/null >/dev/null 2>&1 & sleep 0.6; python3 /opt/ai-os/spotlight/wallpaper.py",
+            f"pkill -x nemo-desktop; LANG={sys_locale} LC_ALL={sys_locale} setsid nemo-desktop </dev/null >/dev/null 2>&1 & sleep 0.6; python3 /opt/ai-os/spotlight/wallpaper.py",
             shell=True,
         )
     except Exception:

@@ -463,7 +463,7 @@ IGNORED_DESKTOP_IDS = {
 def get_system_actions():
     return [
         (*t("act_terminal"), "utilities-terminal", lambda: subprocess.Popen(["xterm"])),
-        (*t("act_files"), "system-file-manager", lambda: subprocess.Popen(["pcmanfm", str(HOME)])),
+        (*t("act_files"), "system-file-manager", lambda: subprocess.Popen(["nemo", str(HOME)])),
         (*t("act_browser"), "web-browser", lambda: subprocess.Popen(["chromium", "--remote-debugging-port=9222", "--remote-debugging-address=127.0.0.1"])),
         (*t("act_sysinfo"), "utilities-system-monitor", f"ask:{t('act_sysinfo_prompt')}"),
         (*t("act_lock"), "system-lock-screen", lambda: subprocess.Popen(["/opt/ai-os/spotlight/lock.sh"])),
@@ -626,7 +626,7 @@ class WindowsPopover(Gtk.Window):
                     low = app_name.lower()
                     if "chromium" in low:
                         icon_name = "web-browser"
-                    elif "pcmanfm" in low:
+                    elif "pcmanfm" in low or "nemo" in low:
                         icon_name = "system-file-manager"
                     elif "xterm" in low:
                         icon_name = "utilities-terminal"
@@ -1690,7 +1690,7 @@ class TopBarWindow(Gtk.Window):
             wid, ws_str, wm_class, _, title = parts
             if "AITopBar" in wm_class or "AISpotlight" in wm_class:
                 continue
-            if wm_class == "pcmanfm.Pcmanfm" and title == "pcmanfm":
+            if (wm_class == "pcmanfm.Pcmanfm" and title == "pcmanfm") or wm_class == "nemo-desktop.Nemo-desktop":
                 continue
             try:
                 ws_idx = int(ws_str)

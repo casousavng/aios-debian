@@ -13,7 +13,12 @@ xset s 600 600 &
 xss-lock -- /opt/ai-os/spotlight/lock.sh &
 
 # Ícones/pastas reais no ambiente de trabalho (sem painéis nem barras)
-pcmanfm --desktop &
+gsettings set org.nemo.desktop show-desktop-icons true 2>/dev/null || true
+gsettings set org.nemo.desktop computer-icon-visible false 2>/dev/null || true
+gsettings set org.nemo.desktop home-icon-visible false 2>/dev/null || true
+gsettings set org.nemo.desktop trash-icon-visible false 2>/dev/null || true
+gsettings set org.nemo.desktop volumes-visible false 2>/dev/null || true
+nemo-desktop &
 
 # Aplica wallpaper dinâmico e arranca Spotlight + gestos touchpad
 sleep 1

@@ -90,7 +90,13 @@ def generate_and_apply():
     env = os.environ.copy()
     env.setdefault("DISPLAY", ":0")
     subprocess.run(
-        ["pcmanfm", f"--set-wallpaper={WALLPAPER_PATH}", "--wallpaper-mode=crop"],
+        ["gsettings", "set", "org.cinnamon.desktop.background", "picture-uri", f"file://{WALLPAPER_PATH}"],
+        env=env,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+    subprocess.run(
+        ["gsettings", "set", "org.cinnamon.desktop.background", "picture-options", "zoom"],
         env=env,
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
