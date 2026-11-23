@@ -1,10 +1,13 @@
 #!/usr/bin/env python3
+import fcntl
 import json
 import os
 import pty
 import re
 import select
+import struct
 import subprocess
+import termios
 import time
 import datetime
 from pathlib import Path
@@ -121,6 +124,10 @@ def agy_auth_login_start():
 
     _AUTH_SESSION["pid"] = pid
     _AUTH_SESSION["fd"] = fd
+    try:
+        fcntl.ioctl(fd, termios.TIOCSWINSZ, struct.pack("HHHH", 40, 120, 0, 0))
+    except OSError:
+        pass
     buf = b""
     sent_enter = False
     start = time.time()
