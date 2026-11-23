@@ -2059,7 +2059,7 @@ class SpotlightWindow(Gtk.Window):
         monitor = display.get_primary_monitor() or display.get_monitor(0)
         geom = monitor.get_geometry()
         hints = Gdk.Geometry()
-        hints.max_width = 820
+        hints.max_width = 720
         hints.max_height = max(240, min(540, geom.height - 80))
         self.set_geometry_hints(None, hints, Gdk.WindowHints.MAX_SIZE)
 
@@ -2108,7 +2108,7 @@ class SpotlightWindow(Gtk.Window):
         monitor = display.get_primary_monitor() or display.get_monitor(0)
         geom = monitor.get_geometry()
         alloc = self.get_allocation()
-        w = alloc.width if alloc.width > 1 else 720
+        w = 720
         h = alloc.height if alloc.height > 1 else 48
         x = geom.x + (geom.width - w) // 2
         y = geom.y + geom.height - h - 24
@@ -2248,9 +2248,7 @@ class SpotlightWindow(Gtk.Window):
             self.reply_scroll.set_min_content_height(max(32, min(h, 440)))
         except Exception:
             self.reply_scroll.set_min_content_height(140)
-        w = 820 if self.reply_box.is_visible() else 720
-        self.card.set_size_request(w, -1)
-        self.resize(w, 1)
+        self.resize(720, 1)
 
     def _load_history(self):
         try:
