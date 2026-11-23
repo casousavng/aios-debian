@@ -307,6 +307,8 @@ def get_system_actions():
 def get_slash_commands():
     return [
         ("/usage", t("slash_usage"), "ask_now:/usage"),
+        ("/login", t("slash_login"), "local:login"),
+        ("/logout", t("slash_logout"), "local:logout"),
         ("/model ", t("slash_model"), "fill:/model "),
         ("/mode ", t("slash_mode"), "fill:/mode "),
         ("/models", t("slash_models"), "ask_now:/models"),
@@ -328,8 +330,6 @@ def get_system_commands():
         ("#screenshot", t("slash_screenshot"), "local:screenshot"),
         ("#displays", t("slash_displays"), "local:displays"),
         ("#lang ", t("slash_lang"), "fill:#lang "),
-        ("#login", t("slash_login"), "local:login"),
-        ("#logout", t("slash_logout"), "local:logout"),
         ("#update", t("slash_update"), "ask_now:/update"),
         ("#lock", t("slash_lock"), "local:lock"),
         ("#reboot", t("act_reboot")[1], "local:reboot"),

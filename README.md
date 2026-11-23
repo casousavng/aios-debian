@@ -19,8 +19,8 @@ It is built to run fast on both modern machines and older hardware/VMs (~**405 M
   - Fixed 1-line bottom-docked input bar with vertical scroll (`Enter` sends, `Shift+Enter` newline, `Ctrl+↑/↓` prompt history, `Ctrl+H` saved chats).
   - **Lazy WebKit2GTK** Markdown renderer (~75 MiB RSS idle, 0 WebKit processes until first AI reply) with real-time SSE streaming (`/api/ask_stream`), **Copy**, and **Open in LiteMD** buttons.
   - **Separated Command Namespaces:**
-    - `/` for **AGY CLI**: `/usage`, `/model `, `/mode `, `/models`, `/agents`, `/mcp`, `/new`, `/clear`, `/compact`, `/plan `, `/changelog`, `/help`, plus `@file` autocomplete from `~/Desktop`, `~/Documentos`, `~/Projetos`, `~/Temp`.
-    - `#` for **AI-OS System**: `#chats`, `#clip` (15-item clipboard history), `#screenshot`, `#displays`, `#lang ` (`pt`/`en`), `#login`, `#logout`, `#update`, `#lock`, `#reboot`, `#poweroff`.
+    - `/` for **AGY CLI**: `/usage`, `/login`, `/logout`, `/model `, `/mode `, `/models`, `/agents`, `/mcp`, `/new`, `/clear`, `/compact`, `/plan `, `/changelog`, `/help`, plus `@file` autocomplete from `~/Desktop`, `~/Documentos`, `~/Projetos`, `~/Temp`.
+    - `#` for **AI-OS System**: `#chats`, `#clip` (15-item clipboard history), `#screenshot`, `#displays`, `#lang ` (`pt`/`en`), `#update`, `#lock`, `#reboot`, `#poweroff`.
 - **TopBar (`28px`) & Control Center:**
   - `◉` / `✦ AI...` live agent busy indicator, clickable open/minimized window switcher, live `PT`/`EN` language switch (with centered confirmation dialog), network status, battery, and clock.
   - **Control Popover:** Volume (`wpctl`), Brightness (`brightnessctl` / `xrandr`), active Podman container count, Wi-Fi network selector, Bluetooth toggle, **Detect Displays (`xrandr --auto`)**, and Lock Screen.
@@ -55,7 +55,7 @@ git clone https://github.com/casousavng/aios-debian.git
 cd aios-debian
 bash install-aios.sh
 ```
-Reboot after installation. Log into `agy` directly from Spotlight with `#login` (browser opens Google OAuth; paste the `4/0...` code into Spotlight and press `Enter`).
+Reboot after installation. Log into `agy` directly from Spotlight with `/login` (browser opens Google OAuth; paste the `4/0...` code into Spotlight and press `Enter`).
 
 #### Unattended ISO Build
 ```bash
@@ -85,8 +85,8 @@ Foi otimizado para correr rápido tanto em máquinas atuais como em hardware ant
   - Barra fixa de 1 linha com scroll vertical (`Enter` envia, `Shift+Enter` quebra linha, `Ctrl+↑/↓` histórico, `Ctrl+H` conversas guardadas).
   - Renderização Markdown em **WebKit2GTK lazy** (~75 MiB RSS em idle, 0 processos WebKit até à 1.ª resposta) com streaming SSE (`/api/ask_stream`), botões **Copiar** e **Abrir no LiteMD**.
   - **Comandos separados por prefixo:**
-    - `/` para **AGY CLI**: `/usage`, `/model `, `/mode `, `/models`, `/agents`, `/mcp`, `/new`, `/clear`, `/compact`, `/plan `, `/changelog`, `/help`, além de autocomplete `@ficheiro` em `~/Desktop`, `~/Documentos`, `~/Projetos`, `~/Temp`.
-    - `#` para **Sistema AI-OS**: `#chats`, `#clip` (histórico de clipboard com 15 entradas), `#screenshot`, `#displays`, `#lang ` (`pt`/`en`), `#login`, `#logout`, `#update`, `#lock`, `#reboot`, `#poweroff`.
+    - `/` para **AGY CLI**: `/usage`, `/login`, `/logout`, `/model `, `/mode `, `/models`, `/agents`, `/mcp`, `/new`, `/clear`, `/compact`, `/plan `, `/changelog`, `/help`, além de autocomplete `@ficheiro` em `~/Desktop`, `~/Documentos`, `~/Projetos`, `~/Temp`.
+    - `#` para **Sistema AI-OS**: `#chats`, `#clip` (histórico de clipboard com 15 entradas), `#screenshot`, `#displays`, `#lang ` (`pt`/`en`), `#update`, `#lock`, `#reboot`, `#poweroff`.
 - **Barra de Topo (`28px`) & Centro de Controlo:**
   - Indicador `◉` / `✦ AI...` quando a IA está a trabalhar, lista clicável de janelas abertas/minimizadas, alternância instantânea `PT`/`EN` (com popup centrado de confirmação), estado de rede, bateria e relógio.
   - **Popover de Controlo:** Volume (`wpctl`), Brilho (`brightnessctl` / `xrandr`), contentores Podman ativos, ligação Wi-Fi, toggle Bluetooth, **Detetar Ecrãs (`xrandr --auto`)** e Bloquear Ecrã.
@@ -121,7 +121,7 @@ git clone https://github.com/casousavng/aios-debian.git
 cd aios-debian
 bash install-aios.sh
 ```
-Reinicia no fim. Para autenticar o `agy` sem terminal, escreve `#login` no Spotlight, autoriza no browser e cola o código `4/0...` no Spotlight + `Enter`.
+Reinicia no fim. Para autenticar o `agy` sem terminal, escreve `/login` no Spotlight, autoriza no browser e cola o código `4/0...` no Spotlight + `Enter`.
 
 #### Estrutura do Repositório
 ```text
