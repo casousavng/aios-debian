@@ -514,6 +514,9 @@ def get_system_commands():
         ("#audit", t("slash_audit"), "local:audit"),
         ("#ports", t("slash_ports"), "local:ports"),
         ("#proj", t("slash_proj"), "local:proj"),
+        ("#grep ", t("slash_grep"), "fill:#grep "),
+        ("#health", t("slash_health"), "local:health"),
+        ("#keys", t("slash_keys"), "local:keys"),
         ("#notif", t("slash_notif"), "local:notif"),
         ("#clip", t("slash_clip"), "local:clip"),
         ("#screenshot", t("slash_screenshot"), "local:screenshot"),
@@ -653,6 +656,7 @@ class WindowsPopover(Gtk.Window):
                     else:
                         icon_name = "application-x-executable"
 
+                    row_w = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=4)
                     btn = Gtk.Button()
                     btn.get_style_context().add_class("reply-btn")
                     box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
@@ -660,7 +664,7 @@ class WindowsPopover(Gtk.Window):
                     ico.set_pixel_size(16)
                     lbl = Gtk.Label(label=title, xalign=0)
                     lbl.set_ellipsize(Pango.EllipsizeMode.END)
-                    lbl.set_max_width_chars(30)
+                    lbl.set_max_width_chars(26)
                     box.pack_start(ico, False, False, 0)
                     box.pack_start(lbl, True, True, 0)
                     if is_active:
@@ -669,7 +673,12 @@ class WindowsPopover(Gtk.Window):
                         box.pack_end(dot, False, False, 0)
                     btn.add(box)
                     btn.connect("clicked", lambda _, w=wid: (self.hide(), subprocess.Popen(["wmctrl", "-i", "-a", w])))
-                    self.card.pack_start(btn, False, False, 0)
+                    xb = Gtk.Button(label="×")
+                    xb.get_style_context().add_class("reply-btn")
+                    xb.connect("clicked", lambda _, w=wid: (subprocess.Popen(["wmctrl", "-i", "-c", w]), self.hide()))
+                    row_w.pack_start(btn, True, True, 0)
+                    row_w.pack_end(xb, False, False, 0)
+                    self.card.pack_start(row_w, False, False, 0)
 
         self.move(geom.x + 10, geom.y + 34)
         self.show_all()
@@ -3175,6 +3184,45 @@ class SpotlightWindow(Gtk.Window):
             elif payload == "local:proj":
                 self.clear_query()
                 self.show_projects_menu()
+            elif payload == "local:keys":
+                self.clear_query()
+                self.hide_results()
+                self.show_reply(
+                    "| Atalho | Ação |\n|---|---|\n"
+                    "| `Super+Espaço` / `Alt+Espaço` | Focar Spotlight |\n"
+                    "| `Super+T` | Abrir Terminal (`xterm`) |\n"
+                    "| `Super+L` | Bloquear ecrã (`i3lock`) |\n"
+                    "| `Super+1..4` | Mudar de Workspace |\n"
+                    "| `Super+Shift+1..4` | Mover janela para Workspace |\n"
+                    "| `Super+←/→/↑/↓` | Encaixar / Maximizar janela |\n"
+                    "| `Alt+Arrastar` / `Alt+F4` | Mover / Fechar qualquer janela |\n"
+                    "| `Print` / `Ctrl+V` | Captura ou colar imagem no chat |\n"
+                    "| `Ctrl+H` | Histórico de conversas |"
+                )
+            elif payload == "local:health":
+                self.clear_query()
+                self.hide_results()
+                import shutil
+                du = shutil.disk_usage("/")
+                disk_pct = int(du.used * 100 / du.total)
+                ram_line = ""
+                try:
+                    mi = {k: int(v.split()[0]) for k, v in (l.split(":", 1) for l in Path("/proc/meminfo").read_text().splitlines() if ":" in l)}
+                    tot_m = mi.get("MemTotal", 1) // 1024
+                    avail_m = mi.get("MemAvailable", 0) // 1024
+                    ram_line = f"{tot_m - avail_m} / {tot_m} MB"
+                except Exception:
+                    ram_line = "N/D"
+                svcs = []
+                for name, pat in [("server.py", "server.py"), ("nemo-desktop", "nemo-desktop"), ("dunst", "^dunst$"), ("picom", "^picom"), ("cron", "cron")]:
+                    ok = subprocess.run(["pgrep", "-f", pat], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode == 0
+                    svcs.append(f"| `{name}` | {'OK' if ok else 'OFF'} |")
+                self.show_reply(
+                    "| Componente | Estado |\n|---|---|\n"
+                    + "\n".join(svcs)
+                    + f"\n| Disco `/` | {disk_pct}% ({du.free // (1024**3)} GB livres) |\n"
+                    + f"| RAM | {ram_line} |"
+                )
             elif payload == "local:reminders":
                 self.clear_query()
                 self.show_reminders_menu()
@@ -3394,6 +3442,42 @@ class SpotlightWindow(Gtk.Window):
             subprocess.Popen(["sudo", "timedatectl", "set-ntp", "true"])
             self.clear_query()
             self.show_reply(t("tz_ok", tz=tz))
+            return
+
+        if prompt.strip().startswith("#grep "):
+            term = prompt.split(None, 1)[1].strip().lower()
+            self.clear_query()
+            hits = []
+            skip = {".git", "node_modules", "__pycache__", "venv", ".venv"}
+            for base in [HOME / "Documentos", HOME / "Desktop", HOME / "Projetos"]:
+                if not base.exists():
+                    continue
+                for root, dirs, files in os.walk(base):
+                    dirs[:] = [d for d in dirs if d not in skip and not d.startswith(".")]
+                    for fn in files:
+                        if fn.startswith(".") or fn.endswith((".png", ".jpg", ".pdf", ".pyc", ".iso")):
+                            continue
+                        fp = Path(root) / fn
+                        try:
+                            if fp.stat().st_size > 262144:
+                                continue
+                            for idx, line in enumerate(fp.read_text(encoding="utf-8", errors="ignore").splitlines(), 1):
+                                if term in line.lower():
+                                    hits.append(("file", f"{fn}:{idx}", line.strip()[:70], "text-x-generic", str(fp)))
+                                    break
+                        except OSError:
+                            continue
+                        if len(hits) >= 12:
+                            break
+                    if len(hits) >= 12:
+                        break
+                if len(hits) >= 12:
+                    break
+            if hits:
+                self._populate_list(hits)
+            else:
+                self.hide_results()
+                self.show_reply(t("grep_empty"))
             return
 
         if prompt.strip() in ("#remind", "#reminders", "#crons"):

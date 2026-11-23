@@ -152,6 +152,10 @@ STRINGS = {
         "dnd_btn": "DND",
         "clip_pin": "Fixar no topo",
         "clip_unpin": "Remover fixado",
+        "slash_keys": "Folha rápida de atalhos do sistema",
+        "slash_grep": "Procurar texto dentro de ficheiros (ex: #grep termo)",
+        "slash_health": "Verificar saúde de serviços, disco e RAM",
+        "grep_empty": "Sem correspondências nos ficheiros.",
     },
     "en": {
         "placeholder": "Ask anything, / for AI, # for system...",
@@ -298,6 +302,10 @@ STRINGS = {
         "dnd_btn": "DND",
         "clip_pin": "Pin to top",
         "clip_unpin": "Unpin",
+        "slash_keys": "Quick system keyboard & mouse cheatsheet",
+        "slash_grep": "Search text inside files (e.g. #grep term)",
+        "slash_health": "Check services, disk, and RAM health",
+        "grep_empty": "No content matches found.",
     },
 }
 

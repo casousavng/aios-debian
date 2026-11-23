@@ -77,8 +77,9 @@ if ! command -v agy >/dev/null 2>&1 && [ ! -x "$HOME/.local/bin/agy" ]; then
 fi
 [ -x "$HOME/.local/bin/agy" ] && sudo ln -sf "$HOME/.local/bin/agy" /usr/local/bin/agy || true
 sudo mkdir -p /opt/ai-os/spotlight
-sudo cp spotlight/server.py spotlight/index.html spotlight/spotlight_ui.py spotlight/wallpaper.py spotlight/litemd.py spotlight/i18n.py spotlight/screenshot.sh spotlight/lock.sh spotlight/update.sh spotlight/gestures.py spotlight/web_agent.py /opt/ai-os/spotlight/
-sudo chmod +x /opt/ai-os/spotlight/spotlight_ui.py /opt/ai-os/spotlight/wallpaper.py /opt/ai-os/spotlight/litemd.py /opt/ai-os/spotlight/screenshot.sh /opt/ai-os/spotlight/lock.sh /opt/ai-os/spotlight/update.sh /opt/ai-os/spotlight/gestures.py /opt/ai-os/spotlight/web_agent.py
+sudo cp spotlight/server.py spotlight/index.html spotlight/spotlight_ui.py spotlight/wallpaper.py spotlight/litemd.py spotlight/i18n.py spotlight/screenshot.sh spotlight/lock.sh spotlight/update.sh spotlight/run_cron.sh spotlight/gestures.py spotlight/web_agent.py /opt/ai-os/spotlight/
+sudo chmod +x /opt/ai-os/spotlight/spotlight_ui.py /opt/ai-os/spotlight/wallpaper.py /opt/ai-os/spotlight/litemd.py /opt/ai-os/spotlight/screenshot.sh /opt/ai-os/spotlight/lock.sh /opt/ai-os/spotlight/update.sh /opt/ai-os/spotlight/run_cron.sh /opt/ai-os/spotlight/gestures.py /opt/ai-os/spotlight/web_agent.py
+cp -f AGENTS.md "$HOME/AGENTS.md" 2>/dev/null || true
 sudo ln -sf /opt/ai-os/spotlight/web_agent.py /usr/local/bin/aios-web
 sudo usermod -aG input "$USER" || true
 sudo ln -sf /opt/ai-os/spotlight/litemd.py /usr/local/bin/litemd
