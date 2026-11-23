@@ -1110,6 +1110,8 @@ class SpotlightWindow(Gtk.Window):
         top_row.get_style_context().add_class("search-row")
 
         icon = Gtk.Label(label="✦")
+        icon.set_valign(Gtk.Align.END)
+        icon.set_margin_bottom(4)
         icon.get_style_context().add_class("search-icon")
         top_row.pack_start(icon, False, False, 0)
 
@@ -1118,7 +1120,7 @@ class SpotlightWindow(Gtk.Window):
         self.entry_scroll.get_style_context().add_class("clean-scroll")
         self.entry_scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.EXTERNAL)
         self.entry_scroll.set_min_content_height(24)
-        self.entry_scroll.set_max_content_height(96)
+        self.entry_scroll.set_max_content_height(130)
         self.entry_scroll.set_vexpand(False)
         self.entry_scroll.set_propagate_natural_height(True)
         self.entry_scroll.set_valign(Gtk.Align.CENTER)
@@ -1160,16 +1162,22 @@ class SpotlightWindow(Gtk.Window):
         top_row.pack_start(self.mini_scroll, False, False, 0)
 
         self.status_lbl = Gtk.Label(label="⌘ Space")
+        self.status_lbl.set_valign(Gtk.Align.END)
+        self.status_lbl.set_margin_bottom(3)
         self.status_lbl.get_style_context().add_class("keycap-badge")
         top_row.pack_start(self.status_lbl, False, False, 0)
 
         self.send_btn = Gtk.Button(label="→")
+        self.send_btn.set_valign(Gtk.Align.END)
+        self.send_btn.set_size_request(38, 28)
         self.send_btn.get_style_context().add_class("send-arrow")
         self.send_btn.set_can_focus(False)
         self.send_btn.connect("clicked", self.on_activate)
         top_row.pack_end(self.send_btn, False, False, 0)
 
         self.stop_btn = Gtk.Button(label="■")
+        self.stop_btn.set_valign(Gtk.Align.END)
+        self.stop_btn.set_size_request(38, 28)
         self.stop_btn.get_style_context().add_class("send-arrow")
         self.stop_btn.set_can_focus(False)
         self.stop_btn.set_no_show_all(True)
@@ -1908,6 +1916,11 @@ class SpotlightWindow(Gtk.Window):
     def _set_busy(self, busy: bool):
         self.send_btn.set_visible(not busy)
         self.stop_btn.set_visible(busy)
+        self.entry.set_editable(not busy)
+        self.entry.set_sensitive(not busy)
+        self.placeholder_lbl.set_text(t("processing") if busy else t("placeholder"))
+        if not busy:
+            self.entry.grab_focus()
         if self.topbar:
             self.topbar.set_ai_busy(busy)
 
