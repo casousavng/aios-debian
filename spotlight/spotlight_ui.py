@@ -638,8 +638,11 @@ class ControlPopover(Gtk.Window):
         self.connect("leave-notify-event", self._on_leave)
 
     def _open_tz_dialog(self, *_):
-        import datetime
         self.hide()
+        GLib.idle_add(self._show_tz_dialog)
+
+    def _show_tz_dialog(self):
+        import datetime
         dlg = Gtk.Dialog(title=t("tz_title"), flags=0)
         dlg.set_position(Gtk.WindowPosition.CENTER_ALWAYS)
         dlg.set_keep_above(True)
@@ -676,21 +679,27 @@ class ControlPopover(Gtk.Window):
         box.add(dt_entry)
 
         dlg.add_buttons(t("cancel"), Gtk.ResponseType.CANCEL, t("confirm"), Gtk.ResponseType.OK)
+
+        def _on_resp(d, resp):
+            chosen_tz = entry.get_text().strip()
+            chosen_dt = dt_entry.get_text().strip()
+            use_ntp = ntp_chk.get_active()
+            d.destroy()
+            if resp == Gtk.ResponseType.OK:
+                if chosen_tz:
+                    subprocess.run(["sudo", "timedatectl", "set-timezone", chosen_tz], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                if use_ntp:
+                    subprocess.Popen(["sudo", "timedatectl", "set-ntp", "true"])
+                elif chosen_dt:
+                    subprocess.run(["sudo", "timedatectl", "set-ntp", "false"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                    dt_full = chosen_dt if len(chosen_dt) > 16 else f"{chosen_dt}:00"
+                    subprocess.Popen(["sudo", "timedatectl", "set-time", dt_full])
+
+        dlg.connect("response", _on_resp)
+        dlg.connect("delete-event", lambda d, *_: (d.destroy(), True)[1])
         dlg.show_all()
-        resp = dlg.run()
-        chosen_tz = entry.get_text().strip()
-        chosen_dt = dt_entry.get_text().strip()
-        use_ntp = ntp_chk.get_active()
-        dlg.destroy()
-        if resp == Gtk.ResponseType.OK:
-            if chosen_tz:
-                subprocess.run(["sudo", "timedatectl", "set-timezone", chosen_tz], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-            if use_ntp:
-                subprocess.Popen(["sudo", "timedatectl", "set-ntp", "true"])
-            elif chosen_dt:
-                subprocess.run(["sudo", "timedatectl", "set-ntp", "false"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-                dt_full = chosen_dt if len(chosen_dt) > 16 else f"{chosen_dt}:00"
-                subprocess.Popen(["sudo", "timedatectl", "set-time", dt_full])
+        dlg.present()
+        return False
 
     def _on_enter(self, *_):
         self._hovering = True
@@ -733,6 +742,10 @@ class ControlPopover(Gtk.Window):
         threading.Thread(target=_w, daemon=True).start()
 
     def _connect_wifi(self, ssid):
+        self.hide()
+        GLib.idle_add(self._show_wifi_dialog, ssid)
+
+    def _show_wifi_dialog(self, ssid):
         dlg = Gtk.Dialog(title=ssid, flags=0)
         dlg.set_position(Gtk.WindowPosition.CENTER_ALWAYS)
         dlg.add_buttons(t("cancel"), Gtk.ResponseType.CANCEL, t("confirm"), Gtk.ResponseType.OK)
@@ -742,18 +755,24 @@ class ControlPopover(Gtk.Window):
         entry.set_visibility(False)
         box.add(lbl)
         box.add(entry)
+
+        def _on_resp(d, resp):
+            pw = entry.get_text()
+            d.destroy()
+            if resp == Gtk.ResponseType.OK:
+                req = urllib.request.Request(
+                    f"{API_BASE}/api/net/wifi",
+                    data=json.dumps({"ssid": ssid, "password": pw}).encode(),
+                    headers={"Content-Type": "application/json"},
+                    method="POST",
+                )
+                threading.Thread(target=lambda: urllib.request.urlopen(req, timeout=15).read(), daemon=True).start()
+
+        dlg.connect("response", _on_resp)
+        dlg.connect("delete-event", lambda d, *_: (d.destroy(), True)[1])
         dlg.show_all()
-        resp = dlg.run()
-        pw = entry.get_text()
-        dlg.destroy()
-        if resp == Gtk.ResponseType.OK:
-            req = urllib.request.Request(
-                f"{API_BASE}/api/net/wifi",
-                data=json.dumps({"ssid": ssid, "password": pw}).encode(),
-                headers={"Content-Type": "application/json"},
-                method="POST",
-            )
-            threading.Thread(target=lambda: urllib.request.urlopen(req, timeout=15).read(), daemon=True).start()
+        dlg.present()
+        return False
 
     def on_vol_changed(self, scale):
         val = int(scale.get_value())
