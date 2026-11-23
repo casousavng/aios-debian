@@ -369,6 +369,7 @@ def get_system_commands():
         ("#displays", t("slash_displays"), "local:displays"),
         ("#lang ", t("slash_lang"), "fill:#lang "),
         ("#kb ", t("slash_kb"), "fill:#kb "),
+        ("#tz ", t("slash_tz"), "fill:#tz "),
         ("#update", t("slash_update"), "local:update"),
         ("#lock", t("slash_lock"), "local:lock"),
         ("#reboot", t("act_reboot")[1], "local:reboot"),
@@ -531,22 +532,44 @@ class ControlPopover(Gtk.Window):
             self.set_visual(visual)
         self.connect("draw", clear_transparent)
 
-        card = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+        card = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
         card.get_style_context().add_class("popover-card")
-        card.set_size_request(270, -1)
+        card.set_size_request(290, -1)
         self.add(card)
 
-        self.vol_lbl = Gtk.Label(label=t("volume"), xalign=0)
-        self.vol_lbl.get_style_context().add_class("pop-title")
-        card.pack_start(self.vol_lbl, False, False, 0)
+        # Header: Date/Time + Timezone button
+        hdr_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+        self.dt_lbl = Gtk.Label(label="--", xalign=0)
+        self.dt_lbl.get_style_context().add_class("pop-title")
+        self.tz_btn = Gtk.Button(label=t("tz_btn"))
+        self.tz_btn.get_style_context().add_class("reply-btn")
+        self.tz_btn.connect("clicked", self._open_tz_dialog)
+        hdr_row.pack_start(self.dt_lbl, True, True, 0)
+        hdr_row.pack_end(self.tz_btn, False, False, 0)
+        card.pack_start(hdr_row, False, False, 0)
+
+        div1 = Gtk.Box()
+        div1.get_style_context().add_class("divider")
+        card.pack_start(div1, False, False, 0)
+
+        # Section 1: Audio & Display
+        self.sec1_lbl = Gtk.Label(label=t("sec_audio_display"), xalign=0)
+        self.sec1_lbl.get_style_context().add_class("pop-sub")
+        card.pack_start(self.sec1_lbl, False, False, 0)
+
+        vol_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+        self.vol_lbl = Gtk.Label(label=f"{t('volume')}: 70%", xalign=0)
+        self.vol_lbl.get_style_context().add_class("pop-sub")
+        vol_row.pack_start(self.vol_lbl, False, False, 0)
+        card.pack_start(vol_row, False, False, 0)
         self.vol_scale = Gtk.Scale.new_with_range(Gtk.Orientation.HORIZONTAL, 0, 100, 5)
         self.vol_scale.set_value(70)
         self.vol_scale.set_draw_value(False)
         self.vol_scale.connect("value-changed", self.on_vol_changed)
         card.pack_start(self.vol_scale, False, False, 0)
 
-        self.bri_lbl = Gtk.Label(label=t("brightness"), xalign=0)
-        self.bri_lbl.get_style_context().add_class("pop-title")
+        self.bri_lbl = Gtk.Label(label=f"{t('brightness')}: 100%", xalign=0)
+        self.bri_lbl.get_style_context().add_class("pop-sub")
         card.pack_start(self.bri_lbl, False, False, 0)
         self.bri_scale = Gtk.Scale.new_with_range(Gtk.Orientation.HORIZONTAL, 10, 100, 5)
         self.bri_scale.set_value(100)
@@ -554,15 +577,20 @@ class ControlPopover(Gtk.Window):
         self.bri_scale.connect("value-changed", self.on_bri_changed)
         card.pack_start(self.bri_scale, False, False, 0)
 
-        self.info_lbl = Gtk.Label(label=t("podman_ready"), xalign=0)
-        self.info_lbl.get_style_context().add_class("pop-sub")
-        card.pack_start(self.info_lbl, False, False, 0)
+        self.audio_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=3)
+        card.pack_start(self.audio_box, False, False, 0)
+
+        div2 = Gtk.Box()
+        div2.get_style_context().add_class("divider")
+        card.pack_start(div2, False, False, 0)
+
+        # Section 2: Connections
+        self.sec2_lbl = Gtk.Label(label=t("sec_conn"), xalign=0)
+        self.sec2_lbl.get_style_context().add_class("pop-sub")
+        card.pack_start(self.sec2_lbl, False, False, 0)
 
         self.wifi_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=3)
         card.pack_start(self.wifi_box, False, False, 0)
-
-        self.audio_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=3)
-        card.pack_start(self.audio_box, False, False, 0)
 
         self.bt_btn = Gtk.Button(label=f"{t('bt_label')}: Toggle")
         self.bt_btn.get_style_context().add_class("reply-btn")
@@ -572,19 +600,72 @@ class ControlPopover(Gtk.Window):
         self.bt_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=3)
         card.pack_start(self.bt_box, False, False, 0)
 
-        self.displays_btn = Gtk.Button(label=t("displays_btn"))
+        div3 = Gtk.Box()
+        div3.get_style_context().add_class("divider")
+        card.pack_start(div3, False, False, 0)
+
+        # Section 3: System 2x2 quick actions
+        self.sec3_lbl = Gtk.Label(label=t("sec_sys"), xalign=0)
+        self.sec3_lbl.get_style_context().add_class("pop-sub")
+        card.pack_start(self.sec3_lbl, False, False, 0)
+
+        grid = Gtk.Grid(column_spacing=6, row_spacing=6, column_homogeneous=True)
+        self.displays_btn = Gtk.Button(label=t("displays_short"))
         self.displays_btn.get_style_context().add_class("reply-btn")
         self.displays_btn.connect("clicked", lambda *_: (self.hide(), subprocess.Popen(["xrandr", "--auto"])))
-        card.pack_start(self.displays_btn, False, False, 0)
-
-        self.lock_btn = Gtk.Button(label=t("lock_btn"))
+        self.lock_btn = Gtk.Button(label=t("lock_short"))
         self.lock_btn.get_style_context().add_class("reply-btn")
         self.lock_btn.connect("clicked", lambda *_: (self.hide(), subprocess.Popen(["/opt/ai-os/spotlight/lock.sh"])))
-        card.pack_start(self.lock_btn, False, False, 0)
+        self.reboot_btn = Gtk.Button(label=t("reboot_btn"))
+        self.reboot_btn.get_style_context().add_class("reply-btn")
+        self.reboot_btn.connect("clicked", lambda *_: (self.hide(), subprocess.Popen(["sudo", "reboot"])))
+        self.poweroff_btn = Gtk.Button(label=t("poweroff_btn"))
+        self.poweroff_btn.get_style_context().add_class("reply-btn")
+        self.poweroff_btn.connect("clicked", lambda *_: (self.hide(), subprocess.Popen(["sudo", "poweroff"])))
+        grid.attach(self.displays_btn, 0, 0, 1, 1)
+        grid.attach(self.lock_btn, 1, 0, 1, 1)
+        grid.attach(self.reboot_btn, 0, 1, 1, 1)
+        grid.attach(self.poweroff_btn, 1, 1, 1, 1)
+        card.pack_start(grid, False, False, 0)
+
+        self.info_lbl = Gtk.Label(label=t("podman_ready"), xalign=0)
+        self.info_lbl.get_style_context().add_class("pop-sub")
+        card.pack_start(self.info_lbl, False, False, 0)
+
         self._hovering = False
         self.add_events(Gdk.EventMask.ENTER_NOTIFY_MASK | Gdk.EventMask.LEAVE_NOTIFY_MASK)
         self.connect("enter-notify-event", self._on_enter)
         self.connect("leave-notify-event", self._on_leave)
+
+    def _open_tz_dialog(self, *_):
+        self.hide()
+        dlg = Gtk.Dialog(title=t("tz_title"), flags=0)
+        dlg.set_position(Gtk.WindowPosition.CENTER_ALWAYS)
+        dlg.set_keep_above(True)
+        box = dlg.get_content_area()
+        box.set_spacing(8)
+        box.set_border_width(12)
+        entry = Gtk.Entry()
+        try:
+            cur_tz = subprocess.check_output(["timedatectl", "show", "-p", "Timezone", "--value"], text=True).strip()
+        except Exception:
+            cur_tz = "Europe/Lisbon"
+        entry.set_text(cur_tz)
+        box.add(entry)
+        row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=4)
+        for tz in ("Europe/Lisbon", "UTC", "Europe/London", "America/Sao_Paulo"):
+            b = Gtk.Button(label=tz.split("/")[-1].replace("_", " "))
+            b.connect("clicked", lambda _, z=tz: entry.set_text(z))
+            row.pack_start(b, True, True, 0)
+        box.add(row)
+        dlg.add_buttons(t("cancel"), Gtk.ResponseType.CANCEL, t("confirm"), Gtk.ResponseType.OK)
+        dlg.show_all()
+        resp = dlg.run()
+        chosen = entry.get_text().strip()
+        dlg.destroy()
+        if resp == Gtk.ResponseType.OK and chosen:
+            subprocess.Popen(["sudo", "timedatectl", "set-timezone", chosen])
+            subprocess.Popen(["sudo", "timedatectl", "set-ntp", "true"])
 
     def _on_enter(self, *_):
         self._hovering = True
@@ -603,11 +684,17 @@ class ControlPopover(Gtk.Window):
         return False
 
     def refresh_labels(self):
-        self.vol_lbl.set_text(t("volume"))
-        self.bri_lbl.set_text(t("brightness"))
+        self.tz_btn.set_label(t("tz_btn"))
+        self.sec1_lbl.set_text(t("sec_audio_display"))
+        self.sec2_lbl.set_text(t("sec_conn"))
+        self.sec3_lbl.set_text(t("sec_sys"))
+        self.vol_lbl.set_text(f"{t('volume')}: {int(self.vol_scale.get_value())}%")
+        self.bri_lbl.set_text(f"{t('brightness')}: {int(self.bri_scale.get_value())}%")
         self.bt_btn.set_label(f"{t('bt_label')}: Toggle")
-        self.displays_btn.set_label(t("displays_btn"))
-        self.lock_btn.set_label(t("lock_btn"))
+        self.displays_btn.set_label(t("displays_short"))
+        self.lock_btn.set_label(t("lock_short"))
+        self.reboot_btn.set_label(t("reboot_btn"))
+        self.poweroff_btn.set_label(t("poweroff_btn"))
 
     def _on_bt_toggle(self, *_):
         def _w():
@@ -645,10 +732,12 @@ class ControlPopover(Gtk.Window):
 
     def on_vol_changed(self, scale):
         val = int(scale.get_value())
+        self.vol_lbl.set_text(f"{t('volume')}: {val}%")
         subprocess.Popen(["wpctl", "set-volume", "@DEFAULT_AUDIO_SINK@", f"{val}%"], stderr=subprocess.DEVNULL)
 
     def on_bri_changed(self, scale):
         val = max(20, min(100, int(scale.get_value())))
+        self.bri_lbl.set_text(f"{t('brightness')}: {val}%")
         res = subprocess.run(
             ["brightnessctl", "-c", "backlight", "set", f"{val}%"],
             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
@@ -665,16 +754,39 @@ class ControlPopover(Gtk.Window):
         if self.is_visible():
             self.hide()
             return
+        import datetime
+        self.dt_lbl.set_text(datetime.datetime.now().strftime("%a %d %b · %H:%M"))
+        kb = get_config().get("kb_layout", "pt").upper()
+        self.info_lbl.set_text(f"{t('podman_ready')} · KB: {kb}")
+        self.move(geom.x + geom.width - 304, geom.y + 34)
+        self.show_all()
+        threading.Thread(target=self._populate_async, daemon=True).start()
+
+    def _populate_async(self):
         try:
             ps = subprocess.check_output(["podman", "ps", "-q"], text=True, stderr=subprocess.DEVNULL).splitlines()
-            self.info_lbl.set_text(t("podman_active", n=len(ps)))
+            kb = get_config().get("kb_layout", "pt").upper()
+            GLib.idle_add(self.info_lbl.set_text, f"{t('podman_active', n=len(ps))} · KB: {kb}")
         except Exception:
-            self.info_lbl.set_text(t("podman_ready"))
-
-        for child in self.wifi_box.get_children():
-            self.wifi_box.remove(child)
+            pass
         try:
             nets = json.loads(urllib.request.urlopen(f"{API_BASE}/api/net/wifi", timeout=2).read().decode())
+        except Exception:
+            nets = []
+        try:
+            sinks = json.loads(urllib.request.urlopen(f"{API_BASE}/api/audio/sinks", timeout=2).read().decode())
+        except Exception:
+            sinks = []
+        try:
+            bdevs = json.loads(urllib.request.urlopen(f"{API_BASE}/api/bt/devices", timeout=2).read().decode())
+        except Exception:
+            bdevs = []
+
+        def _apply():
+            if not self.is_visible():
+                return False
+            for child in self.wifi_box.get_children():
+                self.wifi_box.remove(child)
             if not nets:
                 wl = Gtk.Label(label=t("wifi_none"), xalign=0)
                 wl.get_style_context().add_class("pop-sub")
@@ -686,41 +798,31 @@ class ControlPopover(Gtk.Window):
                     b.get_style_context().add_class("reply-btn")
                     b.connect("clicked", lambda _, s=n["ssid"]: self._connect_wifi(s))
                     self.wifi_box.add(b)
-        except Exception:
-            pass
+            self.wifi_box.show_all()
 
-        for child in self.audio_box.get_children():
-            self.audio_box.remove(child)
-        try:
-            sinks = json.loads(urllib.request.urlopen(f"{API_BASE}/api/audio/sinks", timeout=2).read().decode())
-            if sinks:
-                al = Gtk.Label(label=t("audio_out"), xalign=0)
-                al.get_style_context().add_class("pop-sub")
-                self.audio_box.add(al)
+            for child in self.audio_box.get_children():
+                self.audio_box.remove(child)
+            if len(sinks) > 1:
                 for s in sinks[:3]:
                     mark = "● " if s["default"] else ""
                     b = Gtk.Button(label=f"{mark}{s['name'][:28]}")
                     b.get_style_context().add_class("reply-btn")
                     b.connect("clicked", lambda _, sid=s["id"]: self._set_audio_sink(sid))
                     self.audio_box.add(b)
-        except Exception:
-            pass
+                self.audio_box.show_all()
 
-        for child in self.bt_box.get_children():
-            self.bt_box.remove(child)
-        try:
-            bdevs = json.loads(urllib.request.urlopen(f"{API_BASE}/api/bt/devices", timeout=2).read().decode())
+            for child in self.bt_box.get_children():
+                self.bt_box.remove(child)
             for d in bdevs[:3]:
                 mark = "● " if d["connected"] else ""
                 b = Gtk.Button(label=f"{mark}{d['name'][:26]}")
                 b.get_style_context().add_class("reply-btn")
                 b.connect("clicked", lambda _, mac=d["mac"]: self._toggle_bt_dev(mac))
                 self.bt_box.add(b)
-        except Exception:
-            pass
+            self.bt_box.show_all()
+            return False
 
-        self.move(geom.x + geom.width - 284, geom.y + 34)
-        self.show_all()
+        GLib.idle_add(_apply)
 
     def _set_audio_sink(self, sink_id):
         req = urllib.request.Request(
@@ -1604,6 +1706,15 @@ class SpotlightWindow(Gtk.Window):
                 if not filt or filt in code or filt in name.lower()
             ]
 
+        if q_raw.startswith("#tz "):
+            zones = ["Europe/Lisbon", "UTC", "Europe/London", "Europe/Madrid", "America/Sao_Paulo", "America/New_York"]
+            filt = q_raw[4:].strip().lower()
+            return [
+                ("slash", z, t("tz_btn"), "preferences-system-time", f"ask_now:#tz {z}")
+                for z in zones
+                if not filt or filt in z.lower()
+            ]
+
         # If prompt starts with #, autocomplete AI-OS system commands
         if q.startswith("#") and " " not in q:
             return [
@@ -2188,6 +2299,14 @@ class SpotlightWindow(Gtk.Window):
             update_config(kb_layout=layout)
             self.clear_query()
             self.show_reply(t("kb_changed", layout=layout))
+            return
+
+        if prompt.strip().startswith("#tz "):
+            tz = prompt.split(None, 1)[1].strip()
+            subprocess.Popen(["sudo", "timedatectl", "set-timezone", tz])
+            subprocess.Popen(["sudo", "timedatectl", "set-ntp", "true"])
+            self.clear_query()
+            self.show_reply(t("tz_ok", tz=tz))
             return
 
         if prompt.strip() in ("/new", "/clear"):
