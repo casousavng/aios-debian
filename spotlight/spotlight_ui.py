@@ -330,7 +330,7 @@ def get_system_commands():
         ("#screenshot", t("slash_screenshot"), "local:screenshot"),
         ("#displays", t("slash_displays"), "local:displays"),
         ("#lang ", t("slash_lang"), "fill:#lang "),
-        ("#update", t("slash_update"), "ask_now:/update"),
+        ("#update", t("slash_update"), "local:update"),
         ("#lock", t("slash_lock"), "local:lock"),
         ("#reboot", t("act_reboot")[1], "local:reboot"),
         ("#poweroff", t("act_poweroff")[1], "local:poweroff"),
@@ -515,10 +515,16 @@ class ControlPopover(Gtk.Window):
         self.wifi_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=3)
         card.pack_start(self.wifi_box, False, False, 0)
 
+        self.audio_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=3)
+        card.pack_start(self.audio_box, False, False, 0)
+
         self.bt_btn = Gtk.Button(label=f"{t('bt_label')}: Toggle")
         self.bt_btn.get_style_context().add_class("reply-btn")
         self.bt_btn.connect("clicked", self._on_bt_toggle)
         card.pack_start(self.bt_btn, False, False, 0)
+
+        self.bt_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=3)
+        card.pack_start(self.bt_box, False, False, 0)
 
         self.displays_btn = Gtk.Button(label=t("displays_btn"))
         self.displays_btn.get_style_context().add_class("reply-btn")
@@ -636,8 +642,59 @@ class ControlPopover(Gtk.Window):
                     self.wifi_box.add(b)
         except Exception:
             pass
+
+        for child in self.audio_box.get_children():
+            self.audio_box.remove(child)
+        try:
+            sinks = json.loads(urllib.request.urlopen(f"{API_BASE}/api/audio/sinks", timeout=2).read().decode())
+            if sinks:
+                al = Gtk.Label(label=t("audio_out"), xalign=0)
+                al.get_style_context().add_class("pop-sub")
+                self.audio_box.add(al)
+                for s in sinks[:3]:
+                    mark = "● " if s["default"] else ""
+                    b = Gtk.Button(label=f"{mark}{s['name'][:28]}")
+                    b.get_style_context().add_class("reply-btn")
+                    b.connect("clicked", lambda _, sid=s["id"]: self._set_audio_sink(sid))
+                    self.audio_box.add(b)
+        except Exception:
+            pass
+
+        for child in self.bt_box.get_children():
+            self.bt_box.remove(child)
+        try:
+            bdevs = json.loads(urllib.request.urlopen(f"{API_BASE}/api/bt/devices", timeout=2).read().decode())
+            for d in bdevs[:3]:
+                mark = "● " if d["connected"] else ""
+                b = Gtk.Button(label=f"{mark}{d['name'][:26]}")
+                b.get_style_context().add_class("reply-btn")
+                b.connect("clicked", lambda _, mac=d["mac"]: self._toggle_bt_dev(mac))
+                self.bt_box.add(b)
+        except Exception:
+            pass
+
         self.move(geom.x + geom.width - 284, geom.y + 34)
         self.show_all()
+
+    def _set_audio_sink(self, sink_id):
+        req = urllib.request.Request(
+            f"{API_BASE}/api/audio/default",
+            data=json.dumps({"id": sink_id}).encode(),
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        threading.Thread(target=lambda: urllib.request.urlopen(req, timeout=3).read(), daemon=True).start()
+        self.hide()
+
+    def _toggle_bt_dev(self, mac):
+        req = urllib.request.Request(
+            f"{API_BASE}/api/bt/connect",
+            data=json.dumps({"mac": mac}).encode(),
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        threading.Thread(target=lambda: urllib.request.urlopen(req, timeout=8).read(), daemon=True).start()
+        self.hide()
 
 
 class TopBarWindow(Gtk.Window):
@@ -688,6 +745,21 @@ class TopBarWindow(Gtk.Window):
         self.logo_btn.connect("clicked", lambda *_: self.win_popover.toggle_at(geom, self._last_windows or []))
         bar.pack_start(self.logo_btn, False, False, 0)
 
+        self.ws_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=2)
+        self.ws_btns = []
+        for idx in range(4):
+            wb = Gtk.Button(label=str(idx + 1))
+            wb.set_can_focus(False)
+            wb.set_valign(Gtk.Align.CENTER)
+            wb.get_style_context().add_class("win-dot")
+            wb.connect("clicked", lambda _, i=idx: subprocess.Popen(["wmctrl", "-s", str(i)]))
+            self.ws_btns.append(wb)
+            self.ws_box.pack_start(wb, False, False, 0)
+        bar.pack_start(self.ws_box, False, False, 0)
+        self._last_ws = -1
+        self._bat_warned_15 = False
+        self._bat_warned_5 = False
+
         self.dots_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=4)
         bar.pack_start(self.dots_box, False, False, 0)
         self._last_windows = None
@@ -737,6 +809,25 @@ class TopBarWindow(Gtk.Window):
         GLib.timeout_add_seconds(1, self.refresh_windows)
 
     def refresh_windows(self):
+        try:
+            ws_out = subprocess.check_output(["wmctrl", "-d"], text=True, stderr=subprocess.DEVNULL)
+            cur_ws = 0
+            for line in ws_out.splitlines():
+                parts = line.split()
+                if len(parts) >= 2 and parts[1] == "*":
+                    cur_ws = int(parts[0])
+                    break
+            if cur_ws != self._last_ws:
+                self._last_ws = cur_ws
+                for idx, wb in enumerate(self.ws_btns):
+                    ctx = wb.get_style_context()
+                    if idx == cur_ws:
+                        ctx.add_class("win-dot-active")
+                    else:
+                        ctx.remove_class("win-dot-active")
+        except Exception:
+            pass
+
         try:
             out = subprocess.check_output(["wmctrl", "-l", "-x"], text=True, stderr=subprocess.DEVNULL)
             act_out = subprocess.check_output(
@@ -865,6 +956,23 @@ class TopBarWindow(Gtk.Window):
         self.wifi_icon.set_from_icon_name(icon_name, Gtk.IconSize.MENU)
         self.wifi_lbl.set_text(wifi)
         self.bat_lbl.set_text(bat)
+        if bat.endswith("%"):
+            try:
+                pct = int(bat.rstrip("%"))
+                if pct <= 5 and not self._bat_warned_5:
+                    self._bat_warned_5 = True
+                    subprocess.Popen(["notify-send", "-u", "critical", "AI-OS", t("bat_crit", pct=pct)])
+                elif pct <= 15 and not self._bat_warned_15:
+                    self._bat_warned_15 = True
+                    subprocess.Popen(["notify-send", "AI-OS", t("bat_low", pct=pct)])
+                elif pct > 20:
+                    self._bat_warned_15 = False
+                    self._bat_warned_5 = False
+            except ValueError:
+                pass
+        else:
+            self._bat_warned_15 = False
+            self._bat_warned_5 = False
         self.clock_lbl.set_text(now)
 
 
@@ -1590,6 +1698,17 @@ class SpotlightWindow(Gtk.Window):
                 self.clear_query()
                 self.hide_results()
                 subprocess.Popen(["sudo", "poweroff"])
+            elif payload == "local:update":
+                self.clear_query()
+                self.hide_results()
+                self.show_reply(t("update_started"))
+                def _run_upd():
+                    try:
+                        subprocess.check_call(["/opt/ai-os/spotlight/update.sh"])
+                        GLib.idle_add(self.show_reply, t("update_done"))
+                    except Exception as e:
+                        GLib.idle_add(self.show_reply, t("update_fail", err=e))
+                threading.Thread(target=_run_upd, daemon=True).start()
             elif payload == "local:login":
                 self.clear_query()
                 self.hide_results()

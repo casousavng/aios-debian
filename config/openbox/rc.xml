@@ -9,7 +9,7 @@
     <followMouse>no</followMouse>
   </focus>
   <desktops>
-    <number>1</number>
+    <number>4</number>
   </desktops>
   <theme>
     <name>AI-OS-Glass</name>
@@ -53,6 +53,13 @@
     <keybind key="A-F4">
       <action name="Close"/>
     </keybind>
+    <!-- Workspaces virtuais (Super+1..4 e Ctrl+Alt+Setas) -->
+    <keybind key="W-1"><action name="GoToDesktop"><to>1</to></action></keybind>
+    <keybind key="W-2"><action name="GoToDesktop"><to>2</to></action></keybind>
+    <keybind key="W-3"><action name="GoToDesktop"><to>3</to></action></keybind>
+    <keybind key="W-4"><action name="GoToDesktop"><to>4</to></action></keybind>
+    <keybind key="C-A-Left"><action name="GoToDesktop"><to>left</to></action></keybind>
+    <keybind key="C-A-Right"><action name="GoToDesktop"><to>right</to></action></keybind>
     <!-- Super + L: Bloquear ecrã -->
     <keybind key="W-l">
       <action name="Execute">

@@ -128,6 +128,68 @@ def toggle_bt():
         return {"ok": False, "powered": False}
 
 
+class AudioSinkRequest(BaseModel):
+    id: int
+
+
+class BtDeviceRequest(BaseModel):
+    mac: str
+
+
+@app.get("/api/audio/sinks")
+def list_audio_sinks():
+    try:
+        out = subprocess.check_output(["wpctl", "status"], text=True, stderr=subprocess.DEVNULL, timeout=3)
+        sinks = []
+        in_sinks = False
+        for line in out.splitlines():
+            if "Sinks:" in line:
+                in_sinks = True
+                continue
+            if in_sinks:
+                if not line.strip() or ("Sources:" in line or "Filters:" in line or "Streams:" in line or "Video" in line):
+                    break
+                m = re.search(r"([*])?\s*(\d+)\.\s+(.+?)\s*(?:\[vol:|$)", line)
+                if m:
+                    sinks.append({"default": bool(m.group(1)), "id": int(m.group(2)), "name": m.group(3).strip()})
+        return sinks[:6]
+    except Exception:
+        return []
+
+
+@app.post("/api/audio/default")
+def set_audio_default(req: AudioSinkRequest):
+    proc = subprocess.run(["wpctl", "set-default", str(req.id)], capture_output=True)
+    return {"ok": proc.returncode == 0}
+
+
+@app.get("/api/bt/devices")
+def list_bt_devices():
+    try:
+        out = subprocess.check_output(["bluetoothctl", "devices", "Paired"], text=True, stderr=subprocess.DEVNULL, timeout=3)
+        devs = []
+        for line in out.splitlines():
+            parts = line.split(None, 2)
+            if len(parts) == 3 and parts[0] == "Device":
+                mac, name = parts[1], parts[2]
+                info = subprocess.check_output(["bluetoothctl", "info", mac], text=True, stderr=subprocess.DEVNULL, timeout=2)
+                devs.append({"mac": mac, "name": name, "connected": "Connected: yes" in info})
+        return devs[:5]
+    except Exception:
+        return []
+
+
+@app.post("/api/bt/connect")
+def connect_bt_device(req: BtDeviceRequest):
+    try:
+        info = subprocess.check_output(["bluetoothctl", "info", req.mac], text=True, stderr=subprocess.DEVNULL, timeout=2)
+        action = "disconnect" if "Connected: yes" in info else "connect"
+        proc = subprocess.run(["bluetoothctl", action, req.mac], capture_output=True, text=True, timeout=8)
+        return {"ok": proc.returncode == 0, "connected": action == "connect"}
+    except Exception:
+        return {"ok": False}
+
+
 @app.get("/api/agy/auth/status")
 def agy_auth_status():
     env = os.environ.copy()
