@@ -1385,18 +1385,6 @@ class SpotlightWindow(Gtk.Window):
         vadj.connect("changed", lambda a: self.mini_scroll.set_visible(a.get_upper() > a.get_page_size() + 2))
         top_row.pack_start(self.mini_scroll, False, False, 0)
 
-        self.resume_chat_btn = Gtk.Button()
-        self._chat_btn_lbl = Gtk.Label(label="▴ Chat")
-        self._chat_btn_lbl.show()
-        self.resume_chat_btn.add(self._chat_btn_lbl)
-        self.resume_chat_btn.set_valign(Gtk.Align.END)
-        self.resume_chat_btn.set_size_request(-1, 28)
-        self.resume_chat_btn.get_style_context().add_class("chat-pill")
-        self.resume_chat_btn.set_can_focus(False)
-        self.resume_chat_btn.set_no_show_all(True)
-        self.resume_chat_btn.connect("clicked", self._toggle_current_chat)
-        top_row.pack_end(self.resume_chat_btn, False, False, 0)
-
         self.send_btn = Gtk.Button(label="→")
         self.send_btn.set_valign(Gtk.Align.END)
         self.send_btn.set_size_request(38, 28)
@@ -1415,6 +1403,18 @@ class SpotlightWindow(Gtk.Window):
         top_row.pack_end(self.stop_btn, False, False, 0)
         self._cancelled = False
 
+        self.resume_chat_btn = Gtk.Button()
+        self._chat_btn_lbl = Gtk.Label(label="▲")
+        self._chat_btn_lbl.show()
+        self.resume_chat_btn.add(self._chat_btn_lbl)
+        self.resume_chat_btn.set_valign(Gtk.Align.END)
+        self.resume_chat_btn.set_size_request(34, 28)
+        self.resume_chat_btn.get_style_context().add_class("chat-pill")
+        self.resume_chat_btn.set_can_focus(False)
+        self.resume_chat_btn.set_no_show_all(True)
+        self.resume_chat_btn.connect("clicked", self._toggle_current_chat)
+        top_row.pack_end(self.resume_chat_btn, False, False, 0)
+
         self.card.pack_start(top_row, False, False, 0)
 
         self._last_pos = None
@@ -1425,6 +1425,14 @@ class SpotlightWindow(Gtk.Window):
         self.connect("focus-in-event", self.on_focus_in)
         self.connect("focus-out-event", self.on_focus_out)
         self.connect("size-allocate", lambda *_: self.dock_bottom())
+
+        display = Gdk.Display.get_default()
+        monitor = display.get_primary_monitor() or display.get_monitor(0)
+        geom = monitor.get_geometry()
+        hints = Gdk.Geometry()
+        hints.max_width = 720
+        hints.max_height = max(240, min(480, geom.height - 96))
+        self.set_geometry_hints(None, hints, Gdk.WindowHints.MAX_SIZE)
 
         self.show_all()
         self.hide_results()
@@ -1531,7 +1539,7 @@ class SpotlightWindow(Gtk.Window):
 
     def _sync_chat_btn(self):
         if self.current_chat_id:
-            self._chat_btn_lbl.set_text("▾ Chat" if self.reply_box.is_visible() else "▴ Chat")
+            self._chat_btn_lbl.set_text("▼" if self.reply_box.is_visible() else "▲")
             self._chat_btn_lbl.show()
             self.resume_chat_btn.show()
         else:
