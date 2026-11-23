@@ -1109,6 +1109,23 @@ class SpotlightWindow(Gtk.Window):
         self.list_scroll.add(self.listbox)
         self.card.pack_start(self.list_scroll, False, False, 0)
 
+        # Draft "letter" card above Spotlight bar when prompt exceeds 1 line
+        self.draft_box = Gtk.ScrolledWindow()
+        self.draft_box.set_shadow_type(Gtk.ShadowType.NONE)
+        self.draft_box.get_style_context().add_class("clean-scroll")
+        self.draft_box.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        self.draft_box.set_max_content_height(180)
+        self.draft_box.set_propagate_natural_height(True)
+        self.draft_box.set_no_show_all(True)
+        self.draft_lbl = Gtk.Label(xalign=0)
+        self.draft_lbl.set_line_wrap(True)
+        self.draft_lbl.set_line_wrap_mode(Pango.WrapMode.WORD_CHAR)
+        self.draft_lbl.set_max_width_chars(76)
+        self.draft_lbl.set_selectable(True)
+        self.draft_lbl.get_style_context().add_class("draft-letter")
+        self.draft_box.add(self.draft_lbl)
+        self.card.pack_start(self.draft_box, False, False, 0)
+
         self.divider = Gtk.Box()
         self.divider.get_style_context().add_class("divider")
         self.card.pack_start(self.divider, False, False, 0)
@@ -1126,15 +1143,16 @@ class SpotlightWindow(Gtk.Window):
         self.entry_scroll = Gtk.ScrolledWindow()
         self.entry_scroll.set_shadow_type(Gtk.ShadowType.NONE)
         self.entry_scroll.get_style_context().add_class("clean-scroll")
-        self.entry_scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.EXTERNAL)
-        self.entry_scroll.set_min_content_height(24)
-        self.entry_scroll.set_max_content_height(150)
+        self.entry_scroll.set_policy(Gtk.PolicyType.EXTERNAL, Gtk.PolicyType.NEVER)
+        self.entry_scroll.set_min_content_height(22)
+        self.entry_scroll.set_max_content_height(24)
+        self.entry_scroll.set_size_request(-1, 24)
         self.entry_scroll.set_vexpand(False)
-        self.entry_scroll.set_propagate_natural_height(True)
+        self.entry_scroll.set_propagate_natural_height(False)
         self.entry_scroll.set_valign(Gtk.Align.CENTER)
 
         self.entry = Gtk.TextView()
-        self.entry.set_wrap_mode(Gtk.WrapMode.WORD_CHAR)
+        self.entry.set_wrap_mode(Gtk.WrapMode.NONE)
         self.entry.set_accepts_tab(False)
         self.entry.set_pixels_above_lines(1)
         self.entry.set_pixels_below_lines(1)
@@ -1307,22 +1325,11 @@ class SpotlightWindow(Gtk.Window):
         if resp == Gtk.ResponseType.OK:
             self.start_agy_login()
 
-    def _sync_entry_height(self):
-        w = self.entry_scroll.get_allocated_width()
-        if w < 100:
-            w = 520
-        _, nat_h = self.entry.get_preferred_height_for_width(w)
-        target_h = max(24, min(nat_h + 2, 144))
-        self.entry_scroll.set_size_request(-1, target_h)
-        if not self.list_scroll.is_visible() and not self.reply_box.is_visible():
-            self.resize(720, 1)
-        return False
-
     def hide_results(self):
         self.divider.hide()
         self.list_scroll.hide()
+        self.draft_box.hide()
         self.reply_box.hide()
-        self.entry_scroll.set_size_request(-1, 24)
         self.resize(720, 1)
 
     def on_reply_loaded(self, view, event):
@@ -1541,14 +1548,22 @@ class SpotlightWindow(Gtk.Window):
         matches = self.build_matches(query_for_match)
         if not matches:
             self.results = []
-            if self._last_match_keys:
-                self._last_match_keys = None
+            self._last_match_keys = None
+            self.list_scroll.hide()
+            if "\n" in raw or len(raw) > 54:
+                self.draft_lbl.set_text(raw)
+                self.draft_lbl.show()
+                self.draft_box.show()
+                self.divider.show()
+                adj = self.draft_box.get_vadjustment()
+                GLib.idle_add(lambda: (adj.set_value(adj.get_upper()), False)[1])
+            else:
+                self.draft_box.hide()
                 self.divider.hide()
-                self.list_scroll.hide()
-            GLib.idle_add(self._sync_entry_height)
+                self.resize(720, 1)
             return
 
-        GLib.idle_add(self._sync_entry_height)
+        self.draft_box.hide()
 
         keys = [(k, t) for k, t, _, _, _ in matches]
         if keys == self._last_match_keys and self.list_scroll.is_visible():
