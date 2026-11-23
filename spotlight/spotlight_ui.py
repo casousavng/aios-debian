@@ -901,6 +901,115 @@ class ControlPopover(Gtk.Window):
 
         GLib.idle_add(_apply)
 
+
+class SparklePopover(Gtk.Window):
+    def __init__(self, spotlight):
+        super().__init__(type=Gtk.WindowType.POPUP)
+        self.spotlight = spotlight
+        self.set_decorated(False)
+        self.set_keep_above(True)
+        self.set_app_paintable(True)
+        screen = self.get_screen()
+        visual = screen.get_rgba_visual()
+        if visual and screen.is_composited():
+            self.set_visual(visual)
+        self.connect("draw", clear_transparent)
+
+        card = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+        card.get_style_context().add_class("popover-card")
+        card.set_size_request(260, -1)
+        self.add(card)
+
+        self.prof_lbl = Gtk.Label(label="AI", xalign=0)
+        self.prof_lbl.get_style_context().add_class("pop-title")
+        card.pack_start(self.prof_lbl, False, False, 0)
+
+        prof_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+        self.prof_btns = {}
+        for key in ("fast", "deep", "plan"):
+            b = Gtk.Button(label=t(f"prof_{key}")[0])
+            b.get_style_context().add_class("reply-btn")
+            b.connect("clicked", lambda _, k=key: self._pick_profile(k))
+            self.prof_btns[key] = b
+            prof_row.pack_start(b, True, True, 0)
+        card.pack_start(prof_row, False, False, 0)
+
+        div = Gtk.Box()
+        div.get_style_context().add_class("divider")
+        card.pack_start(div, False, False, 0)
+
+        cur_fs = int(get_config().get("chat_font_size", 13))
+        self.fs_lbl = Gtk.Label(label=f"Texto: {cur_fs}px" if get_lang() == "pt" else f"Text: {cur_fs}px", xalign=0)
+        self.fs_lbl.get_style_context().add_class("pop-sub")
+        card.pack_start(self.fs_lbl, False, False, 0)
+
+        self.fs_scale = Gtk.Scale.new_with_range(Gtk.Orientation.HORIZONTAL, 11, 18, 1)
+        self.fs_scale.set_value(cur_fs)
+        self.fs_scale.set_draw_value(False)
+        self.fs_scale.connect("value-changed", self._on_font_changed)
+        card.pack_start(self.fs_scale, False, False, 0)
+
+        self._hovering = False
+        self.add_events(Gdk.EventMask.ENTER_NOTIFY_MASK | Gdk.EventMask.LEAVE_NOTIFY_MASK)
+        self.connect("enter-notify-event", self._on_enter)
+        self.connect("leave-notify-event", self._on_leave)
+
+    def _on_enter(self, *_):
+        self._hovering = True
+        return False
+
+    def _on_leave(self, _, event):
+        if event.detail == Gdk.NotifyType.INFERIOR:
+            return False
+        self._hovering = False
+        GLib.timeout_add(300, self._maybe_hide)
+        return False
+
+    def _maybe_hide(self):
+        if not self._hovering:
+            self.hide()
+        return False
+
+    def _pick_profile(self, key):
+        self.hide()
+        def _w():
+            try:
+                req = urllib.request.Request(
+                    f"{API_BASE}/api/agy/profile",
+                    data=json.dumps({"profile": key}).encode(),
+                    headers={"Content-Type": "application/json"},
+                    method="POST",
+                )
+                res = json.loads(urllib.request.urlopen(req, timeout=8).read().decode())
+                name = t(f"prof_{key}")[0]
+                GLib.idle_add(self.spotlight.show_reply, t("prof_set", name=name, model=res.get("model", "")))
+            except Exception as e:
+                GLib.idle_add(self.spotlight.show_reply, f"Erro: {e}")
+        threading.Thread(target=_w, daemon=True).start()
+
+    def _on_font_changed(self, scale):
+        px = int(scale.get_value())
+        self.fs_lbl.set_text(f"Texto: {px}px" if get_lang() == "pt" else f"Text: {px}px")
+        update_config(chat_font_size=px)
+        if self.spotlight.reply_view and getattr(self.spotlight, "_reply_ready", False):
+            self.spotlight.reply_view.evaluate_javascript(
+                f"document.body.style.fontSize='{px}px'; document.body.scrollHeight;",
+                -1, None, None, None, self.spotlight._on_reply_height, None,
+            )
+
+    def toggle_at(self):
+        if self.is_visible():
+            self.hide()
+            return
+        cur_fs = int(get_config().get("chat_font_size", 13))
+        self.fs_lbl.set_text(f"Texto: {cur_fs}px" if get_lang() == "pt" else f"Text: {cur_fs}px")
+        for key, b in self.prof_btns.items():
+            b.set_label(t(f"prof_{key}")[0])
+        wx, wy = self.spotlight.get_position()
+        self.show_all()
+        _, nat_h = self.get_preferred_height()
+        self.move(wx, max(36, wy - nat_h - 8))
+
     def _set_audio_sink(self, sink_id):
         req = urllib.request.Request(
             f"{API_BASE}/api/audio/default",
@@ -1374,6 +1483,7 @@ class SpotlightWindow(Gtk.Window):
         top_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
         top_row.get_style_context().add_class("search-row")
 
+        self.sparkle_popover = SparklePopover(self)
         icon_btn = Gtk.Button(label="✦")
         icon_btn.set_valign(Gtk.Align.CENTER)
         icon_btn.set_margin_top(2)
@@ -1381,7 +1491,7 @@ class SpotlightWindow(Gtk.Window):
         icon_btn.set_relief(Gtk.ReliefStyle.NONE)
         icon_btn.get_style_context().add_class("search-icon")
         icon_btn.set_tooltip_text("AI & Texto")
-        icon_btn.connect("clicked", self.toggle_ai_profiles)
+        icon_btn.connect("clicked", lambda *_: self.sparkle_popover.toggle_at())
         top_row.pack_start(icon_btn, False, False, 0)
 
         self.entry_scroll = Gtk.ScrolledWindow()
