@@ -75,6 +75,9 @@ STRINGS = {
         "slash_logout": "Terminar sessão do agy CLI",
         "slash_update": "Atualizar sistema Debian, agy e AI-OS",
         "slash_lang": "Alternar idioma (pt / en)",
+        "slash_kb": "Alternar layout de teclado (pt / us / es / fr / gb)",
+        "kb_changed": "Layout de teclado alterado para **{layout}**.",
+        "apps_btn": "Apps",
         "wifi_label": "Wi-Fi",
         "wifi_none": "Sem adaptador Wi-Fi ativo",
         "wifi_pw_prompt": "Password para {ssid}:",
@@ -160,6 +163,9 @@ STRINGS = {
         "slash_logout": "Sign out of agy CLI",
         "slash_update": "Update Debian system, agy, and AI-OS",
         "slash_lang": "Switch language (pt / en)",
+        "slash_kb": "Switch keyboard layout (pt / us / es / fr / gb)",
+        "kb_changed": "Keyboard layout set to **{layout}**.",
+        "apps_btn": "Apps",
         "wifi_label": "Wi-Fi",
         "wifi_none": "No active Wi-Fi adapter",
         "wifi_pw_prompt": "Password for {ssid}:",
@@ -177,6 +183,22 @@ STRINGS = {
         "litemd_empty": "# LiteMD\n\nClick **Open** to choose a `.md` file.",
     },
 }
+
+
+def get_config() -> dict:
+    try:
+        if CONFIG_PATH.exists():
+            return json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
+    except Exception:
+        pass
+    return {}
+
+
+def update_config(**kwargs):
+    CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
+    data = get_config()
+    data.update(kwargs)
+    CONFIG_PATH.write_text(json.dumps(data, indent=2), encoding="utf-8")
 
 
 def get_lang() -> str:

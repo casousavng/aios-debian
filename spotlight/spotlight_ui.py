@@ -14,7 +14,7 @@ from pathlib import Path
 import cairo
 import gi
 import markdown
-from i18n import get_lang, set_lang, t
+from i18n import get_config, get_lang, set_lang, t, update_config
 
 gi.require_version("Gtk", "3.0")
 gi.require_version("Gdk", "3.0")
@@ -367,6 +367,7 @@ def get_system_commands():
         ("#screenshot", t("slash_screenshot"), "local:screenshot"),
         ("#displays", t("slash_displays"), "local:displays"),
         ("#lang ", t("slash_lang"), "fill:#lang "),
+        ("#kb ", t("slash_kb"), "fill:#kb "),
         ("#update", t("slash_update"), "local:update"),
         ("#lock", t("slash_lock"), "local:lock"),
         ("#reboot", t("act_reboot")[1], "local:reboot"),
@@ -1086,7 +1087,15 @@ class SpotlightWindow(Gtk.Window):
 
         self.apps = load_desktop_apps()
         self.agy_models_cache = []
-        self.current_chat_id = None
+        cfg = get_config()
+        saved_kb = cfg.get("kb_layout")
+        if saved_kb:
+            subprocess.Popen(["setxkbmap", saved_kb])
+        last_cid = cfg.get("last_chat_id")
+        if last_cid and (HOME / ".ai-os" / "chats" / f"{last_cid}.md").exists():
+            self.current_chat_id = last_cid
+        else:
+            self.current_chat_id = None
         self.awaiting_auth_code = False
         self.last_reply_md = ""
         self.history = self._load_history()
@@ -1119,7 +1128,7 @@ class SpotlightWindow(Gtk.Window):
         self.new_chat_btn = Gtk.Button(label="/new")
         self.new_chat_btn.get_style_context().add_class("reply-btn")
         self.new_chat_btn.set_can_focus(False)
-        self.new_chat_btn.connect("clicked", lambda *_: (setattr(self, "current_chat_id", None), self.hide_results(), self.show_reply(t("new_chat"))))
+        self.new_chat_btn.connect("clicked", lambda *_: (setattr(self, "current_chat_id", None), update_config(last_chat_id=None), self.hide_results(), self.show_reply(t("new_chat"))))
         actions_row.pack_end(self.litemd_btn, False, False, 0)
         actions_row.pack_end(self.copy_btn, False, False, 0)
         actions_row.pack_end(self.new_chat_btn, False, False, 0)
@@ -1224,6 +1233,14 @@ class SpotlightWindow(Gtk.Window):
         self.mini_scroll.set_no_show_all(True)
         vadj.connect("changed", lambda a: self.mini_scroll.set_visible(a.get_upper() > a.get_page_size() + 2))
         top_row.pack_start(self.mini_scroll, False, False, 0)
+
+        self.apps_btn = Gtk.Button(label=t("apps_btn"))
+        self.apps_btn.set_valign(Gtk.Align.END)
+        self.apps_btn.set_size_request(-1, 28)
+        self.apps_btn.get_style_context().add_class("send-arrow")
+        self.apps_btn.set_can_focus(False)
+        self.apps_btn.connect("clicked", self.toggle_all_apps)
+        top_row.pack_end(self.apps_btn, False, False, 0)
 
         self.resume_chat_btn = Gtk.Button(label="Chat")
         self.resume_chat_btn.set_valign(Gtk.Align.END)
@@ -1585,6 +1602,15 @@ class SpotlightWindow(Gtk.Window):
                 ("slash", "en", "English (EN)", "preferences-desktop-locale", "ask_now:#lang en"),
             ]
 
+        if q_raw.startswith("#kb "):
+            layouts = [("pt", "Português"), ("us", "English (US)"), ("es", "Español"), ("fr", "Français"), ("gb", "English (UK)")]
+            filt = q_raw[4:].strip().lower()
+            return [
+                ("slash", code, name, "input-keyboard", f"ask_now:#kb {code}")
+                for code, name in layouts
+                if not filt or filt in code or filt in name.lower()
+            ]
+
         # If prompt starts with #, autocomplete AI-OS system commands
         if q.startswith("#") and " " not in q:
             return [
@@ -1707,6 +1733,42 @@ class SpotlightWindow(Gtk.Window):
         if first:
             self.listbox.select_row(first)
 
+    def toggle_all_apps(self, *_):
+        if self.list_scroll.is_visible() and self._last_match_keys == "__all_apps__":
+            self.hide_results()
+            return
+        self.reply_box.hide()
+        self.draft_box.hide()
+        matches = [("action", title, sub, icon_name, action) for title, sub, icon_name, action in get_system_actions()]
+        for name, cmd, icon_name in sorted(self.apps, key=lambda a: a[0].lower()):
+            matches.append(("app", name, t("open_app", cmd=cmd.split()[0]), icon_name, cmd))
+        self.results = matches
+        self._last_match_keys = "__all_apps__"
+        for child in self.listbox.get_children():
+            self.listbox.remove(child)
+        for _, title, sub, icon_name, _ in matches:
+            row = Gtk.ListBoxRow()
+            hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+            ico = Gtk.Image.new_from_icon_name(icon_name, Gtk.IconSize.LARGE_TOOLBAR)
+            ico.set_pixel_size(20)
+            hbox.pack_start(ico, False, False, 0)
+            box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=1)
+            t_lbl = Gtk.Label(label=title, xalign=0)
+            t_lbl.get_style_context().add_class("row-title")
+            s_lbl = Gtk.Label(label=sub, xalign=0)
+            s_lbl.get_style_context().add_class("row-sub")
+            box.pack_start(t_lbl, False, False, 0)
+            box.pack_start(s_lbl, False, False, 0)
+            hbox.pack_start(box, True, True, 0)
+            row.add(hbox)
+            self.listbox.add(row)
+        self.divider.show()
+        self.list_scroll.show_all()
+        first = self.listbox.get_row_at_index(0)
+        if first:
+            self.listbox.select_row(first)
+        self._sync_chat_btn()
+
     def show_chats_history(self):
         chats_dir = HOME / ".ai-os" / "chats"
         files = sorted(chats_dir.glob("*.md"), reverse=True)[:8]
@@ -1818,6 +1880,42 @@ class SpotlightWindow(Gtk.Window):
         first = self.listbox.get_row_at_index(0)
         if first:
             self.listbox.select_row(first)
+
+    def toggle_all_apps(self, *_):
+        if self.list_scroll.is_visible() and self._last_match_keys == "__all_apps__":
+            self.hide_results()
+            return
+        self.reply_box.hide()
+        self.draft_box.hide()
+        matches = [("action", title, sub, icon_name, action) for title, sub, icon_name, action in get_system_actions()]
+        for name, cmd, icon_name in sorted(self.apps, key=lambda a: a[0].lower()):
+            matches.append(("app", name, t("open_app", cmd=cmd.split()[0]), icon_name, cmd))
+        self.results = matches
+        self._last_match_keys = "__all_apps__"
+        for child in self.listbox.get_children():
+            self.listbox.remove(child)
+        for _, title, sub, icon_name, _ in matches:
+            row = Gtk.ListBoxRow()
+            hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+            ico = Gtk.Image.new_from_icon_name(icon_name, Gtk.IconSize.LARGE_TOOLBAR)
+            ico.set_pixel_size(20)
+            hbox.pack_start(ico, False, False, 0)
+            box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=1)
+            t_lbl = Gtk.Label(label=title, xalign=0)
+            t_lbl.get_style_context().add_class("row-title")
+            s_lbl = Gtk.Label(label=sub, xalign=0)
+            s_lbl.get_style_context().add_class("row-sub")
+            box.pack_start(t_lbl, False, False, 0)
+            box.pack_start(s_lbl, False, False, 0)
+            hbox.pack_start(box, True, True, 0)
+            row.add(hbox)
+            self.listbox.add(row)
+        self.divider.show()
+        self.list_scroll.show_all()
+        first = self.listbox.get_row_at_index(0)
+        if first:
+            self.listbox.select_row(first)
+        self._sync_chat_btn()
 
     def show_chats_history(self):
         chats_dir = HOME / ".ai-os" / "chats"
@@ -1983,6 +2081,7 @@ class SpotlightWindow(Gtk.Window):
             subprocess.Popen(["notify-send", "AI-OS", t("clip_copied")])
         elif kind == "chat":
             self.current_chat_id = payload
+            update_config(last_chat_id=payload)
             chat_path = HOME / ".ai-os" / "chats" / f"{payload}.md"
             if chat_path.exists():
                 self.show_reply(chat_path.read_text(encoding="utf-8")[-3000:])
@@ -2087,8 +2186,17 @@ class SpotlightWindow(Gtk.Window):
             self.show_reply(t("lang_changed"))
             return
 
+        if prompt.strip().startswith("#kb "):
+            layout = prompt.split(None, 1)[1].strip().lower()
+            subprocess.Popen(["setxkbmap", layout])
+            update_config(kb_layout=layout)
+            self.clear_query()
+            self.show_reply(t("kb_changed", layout=layout))
+            return
+
         if prompt.strip() in ("/new", "/clear"):
             self.current_chat_id = None
+            update_config(last_chat_id=None)
         self._pending_prompt = prompt
         self._cancelled = False
         self._save_history(prompt)
@@ -2116,6 +2224,8 @@ class SpotlightWindow(Gtk.Window):
                         ev = json.loads(line)
                         if ev.get("done"):
                             self.current_chat_id = ev.get("chat_id")
+                            if self.current_chat_id:
+                                update_config(last_chat_id=self.current_chat_id)
                             final_reply = ev.get("reply", "Concluído.")
                         elif ev.get("status") and not acc:
                             GLib.idle_add(self.show_reply, f"⚙ {t('step_tool', tool=ev['status'])}", True)
