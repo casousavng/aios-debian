@@ -229,6 +229,23 @@ button.chat-pill {
     min-height: 28px;
     border-radius: 10px;
 }
+button.chat-tab {
+    background-image: none;
+    background-color: rgba(20, 26, 34, 0.88);
+    border: 1px solid rgba(103, 232, 249, 0.30);
+    border-bottom: none;
+    border-radius: 10px 10px 0 0;
+    color: #67e8f9;
+    font-size: 10px;
+    padding: 0 18px;
+    min-height: 15px;
+    min-width: 0;
+    box-shadow: none;
+}
+button.chat-tab:hover {
+    background-color: rgba(103, 232, 249, 0.22);
+    color: #ffffff;
+}
 button.chat-pill:hover,
 button.send-arrow:hover {
     background-color: rgba(103, 232, 249, 0.28);
@@ -1258,10 +1275,24 @@ class SpotlightWindow(Gtk.Window):
         self._last_match_keys = None
         threading.Thread(target=self._prefetch_models, daemon=True).start()
 
+        outer = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+        self.add(outer)
+
+        self.resume_chat_btn = Gtk.Button()
+        self._chat_btn_lbl = Gtk.Label(label="▲")
+        self._chat_btn_lbl.show()
+        self.resume_chat_btn.add(self._chat_btn_lbl)
+        self.resume_chat_btn.set_halign(Gtk.Align.CENTER)
+        self.resume_chat_btn.get_style_context().add_class("chat-tab")
+        self.resume_chat_btn.set_can_focus(False)
+        self.resume_chat_btn.set_no_show_all(True)
+        self.resume_chat_btn.connect("clicked", self._toggle_current_chat)
+        outer.pack_start(self.resume_chat_btn, False, False, 0)
+
         self.card = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
         self.card.get_style_context().add_class("spotlight-card")
         self.card.set_size_request(720, -1)
-        self.add(self.card)
+        outer.pack_start(self.card, False, False, 0)
 
         # AI reply pane (grows upwards above input bar, rendered Markdown via WebKit2)
         self.reply_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
@@ -1402,18 +1433,6 @@ class SpotlightWindow(Gtk.Window):
         self.stop_btn.connect("clicked", self.on_stop_ai)
         top_row.pack_end(self.stop_btn, False, False, 0)
         self._cancelled = False
-
-        self.resume_chat_btn = Gtk.Button()
-        self._chat_btn_lbl = Gtk.Label(label="▲")
-        self._chat_btn_lbl.show()
-        self.resume_chat_btn.add(self._chat_btn_lbl)
-        self.resume_chat_btn.set_valign(Gtk.Align.END)
-        self.resume_chat_btn.set_size_request(34, 28)
-        self.resume_chat_btn.get_style_context().add_class("chat-pill")
-        self.resume_chat_btn.set_can_focus(False)
-        self.resume_chat_btn.set_no_show_all(True)
-        self.resume_chat_btn.connect("clicked", self._toggle_current_chat)
-        top_row.pack_end(self.resume_chat_btn, False, False, 0)
 
         self.card.pack_start(top_row, False, False, 0)
 
