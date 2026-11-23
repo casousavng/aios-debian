@@ -653,6 +653,8 @@ class WindowsPopover(Gtk.Window):
                         icon_name = "utilities-terminal"
                     elif "litemd" in low:
                         icon_name = "text-x-generic"
+                    elif "aios-settings" in low:
+                        icon_name = "preferences-system"
                     else:
                         icon_name = "application-x-executable"
 
@@ -1418,6 +1420,7 @@ def open_settings_dialog(spotlight):
         existing.present()
         return
     dlg = Gtk.Dialog(title=t("settings_title"), flags=0)
+    dlg.set_wmclass("aios-settings", "AI-OS Settings")
     spotlight._settings_dlg = dlg
     dlg.set_position(Gtk.WindowPosition.CENTER_ALWAYS)
     dlg.set_keep_above(True)
@@ -1467,12 +1470,16 @@ def open_settings_dialog(spotlight):
     tab_ai.pack_start(prof_row, False, False, 0)
 
     auth_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
-    login_b = Gtk.Button(label="/login")
+    pt = get_lang() == "pt"
+    login_b = Gtk.Button(label="Iniciar Sessão" if pt else "Sign In")
     login_b.connect("clicked", lambda *_: (dlg.destroy(), spotlight.start_agy_login()))
-    logout_b = Gtk.Button(label="/logout")
+    logout_b = Gtk.Button(label="Terminar Sessão" if pt else "Sign Out")
     logout_b.connect("clicked", lambda *_: (dlg.destroy(), spotlight.do_agy_logout()))
+    usage_b = Gtk.Button(label="Consumo" if pt else "Usage")
+    usage_b.connect("clicked", lambda *_: (dlg.destroy(), spotlight.send_to_ai("/usage")))
     auth_row.pack_start(login_b, True, True, 0)
     auth_row.pack_start(logout_b, True, True, 0)
+    auth_row.pack_start(usage_b, True, True, 0)
     tab_ai.pack_start(auth_row, False, False, 0)
     nb.append_page(tab_ai, Gtk.Label(label=t("settings_ai")))
 
@@ -1579,9 +1586,15 @@ def open_settings_dialog(spotlight):
     disp_b = Gtk.Button(label=t("displays_short"))
     disp_b.connect("clicked", lambda *_: open_displays_dialog(dlg))
     grid.attach(disp_b, 0, 0, 1, 1)
-    upd_b = Gtk.Button(label="#update")
+    upd_b = Gtk.Button(label="Atualizar Sistema" if pt else "System Update")
     upd_b.connect("clicked", lambda *_: (dlg.destroy(), subprocess.Popen(["/opt/ai-os/spotlight/update.sh"])))
     grid.attach(upd_b, 1, 0, 1, 1)
+    health_b = Gtk.Button(label="Saúde do SO" if pt else "OS Health")
+    health_b.connect("clicked", lambda *_: (dlg.destroy(), spotlight.execute_item(("slash", "#health", "", "", "local:health"))))
+    grid.attach(health_b, 0, 1, 1, 1)
+    keys_b = Gtk.Button(label="Atalhos" if pt else "Shortcuts")
+    keys_b.connect("clicked", lambda *_: (dlg.destroy(), spotlight.execute_item(("slash", "#keys", "", "", "local:keys"))))
+    grid.attach(keys_b, 1, 1, 1, 1)
     tab_sys.pack_start(grid, False, False, 0)
     nb.append_page(tab_sys, Gtk.Label(label=t("settings_sys")))
 
@@ -1837,6 +1850,8 @@ class TopBarWindow(Gtk.Window):
                 icon_name, label_txt = "utilities-terminal", "Terminal"
             elif "litemd" in low:
                 icon_name, label_txt = "text-x-generic", "LiteMD"
+            elif "aios-settings" in low:
+                icon_name, label_txt = "preferences-system", "Definições" if get_lang() == "pt" else "Settings"
             else:
                 icon_name, label_txt = "application-x-executable", app_name[:12]
 
