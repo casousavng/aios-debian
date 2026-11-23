@@ -1954,7 +1954,7 @@ class SpotlightWindow(Gtk.Window):
         self.new_chat_btn = Gtk.Button(label=t("new_chat_btn"))
         self.new_chat_btn.get_style_context().add_class("btn-primary")
         self.new_chat_btn.set_can_focus(False)
-        self.new_chat_btn.connect("clicked", lambda *_: (setattr(self, "current_chat_id", None), update_config(last_chat_id=None), self.hide_results(), self.clear_query(), self.entry.grab_focus()))
+        self.new_chat_btn.connect("clicked", lambda *_: (setattr(self, "current_chat_id", None), update_config(last_chat_id=None), self.hide_results(), self.clear_query(), self._flash_placeholder(t("new_chat"), 2500), self.entry.grab_focus()))
         actions_row.pack_start(self.new_chat_btn, False, False, 0)
 
         self.litemd_btn = Gtk.Button(label=t("open_litemd"))
@@ -2156,6 +2156,16 @@ class SpotlightWindow(Gtk.Window):
                 f"document.body.style.fontSize='{px}px'; (() => {{ const r = document.createRange(); r.selectNodeContents(document.body); return Math.max(32, Math.ceil(r.getBoundingClientRect().height) + 12); }})();",
                 -1, None, None, None, self._on_reply_height, None,
             )
+
+    def _flash_placeholder(self, msg, ms=2500):
+        fid = getattr(self, "_flash_id", 0) + 1
+        self._flash_id = fid
+        self.placeholder_lbl.set_text(msg)
+        def _restore():
+            if getattr(self, "_flash_id", 0) == fid and not getattr(self, "_busy", False):
+                self.placeholder_lbl.set_text(t("placeholder"))
+            return False
+        GLib.timeout_add(ms, _restore)
 
     def apply_lang(self):
         self.placeholder_lbl.set_text(t("placeholder"))
@@ -2621,6 +2631,10 @@ class SpotlightWindow(Gtk.Window):
 
     def on_search_changed(self, *_):
         raw = self.get_query_text()
+        if raw:
+            self._flash_id = getattr(self, "_flash_id", 0) + 1
+            if not getattr(self, "_busy", False):
+                self.placeholder_lbl.set_text(t("placeholder"))
         self.placeholder_lbl.set_visible(len(raw) == 0)
         text = raw.strip()
         if not text:
