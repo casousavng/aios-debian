@@ -33,6 +33,19 @@ Cada componente deste sistema foi escolhido para maximizar **agilidade, previsib
 | **Browser & Automação Web** | **Chromium** com CDP (`127.0.0.1:9222`) + `aios-web` | Permite ao assistente abrir páginas, ler DOM (incluindo `iframes` e Shadow DOM), preencher formulários e tirar screenshots diretamente no browser real do utilizador. |
 | **Isolamento de Ferramentas** | **Podman Rootless** + `ufw` + `i3lock` | Serviços e servidores MCP correm isolados sem sujar o sistema anfitrião; firewall e bloqueio instantâneo vêm ativos de raiz. |
 
+#### Métricas Medidas em Produção (VM Debian 13 Trixie, 2 GB RAM)
+
+| Métrica | Valor Medido | Detalhe Técnico |
+|---|---|---|
+| **RAM em Idle (`free -m`)** | **439 MB** | De 1967 MB totais (`1527 MB` livres, `0 MB` swap `zram` usado) |
+| **Disco / ROM (`df -h /`)** | **3.1 GB** | Sistema Debian 13 completo + desktop + stack AI-OS (`796` pacotes `dpkg`) |
+| **Pegada do AI-OS (`/opt/ai-os`)** | **680 KB** | Todo o código Python/Bash/UI do sistema operativo |
+| **Tempo de Arranque (`systemd-analyze`)** | **2.44s** | `532ms` kernel + `1.910s` userspace (`graphical.target` em `1.825s`) |
+| **Consumo AI CLI em Idle** | **0 MB / 0% CPU** | Agente CLI só arranca sob pedido no prompt; automações usam `crontab` + `threading.Timer` (zero polling) |
+| **Backend AI (`server.py`)** | **57.5 MB** RSS | FastAPI local (`127.0.0.1:8765`), gestor de crons, portas e estado |
+| **UI Nativa (`spotlight_ui.py`)** | **82.8 MB** RSS | GTK3 + WebKit2GTK (TopBar + Popovers + Spotlight) sem overhead de Electron |
+| **Sessão Desktop (`openbox` + `picom` + `dunst` + `nemo-desktop`)** | **78.4 MB** RSS | `17.2 MB` + `4.8 MB` + `10.3 MB` + `46.1 MB` combinados |
+
 ---
 
 ### 2. Galeria do Sistema
@@ -175,6 +188,19 @@ Every component is chosen to maximize **responsiveness, predictability, and low 
 | **Docs Reader & Editor** | **LiteMD** (`litemd.py`) | Single lightweight utility (`GTK3 + WebKit2`) registered as default for Markdown and plain text, toggling instantly between styled reading and editing (`Ctrl+E` / `Ctrl+S`). |
 | **Browser & Web Automation** | **Chromium** with CDP (`127.0.0.1:9222`) + `aios-web` | Lets the assistant open pages, inspect DOM (including `iframes` and Shadow DOM), fill forms, and capture screenshots in the user's real browser. |
 | **Tool Isolation** | **Podman Rootless** + `ufw` + `i3lock` | Services and MCP servers run isolated without polluting the host; firewall and instant screen lock are enabled out of the box. |
+
+#### Measured System Footprint (Debian 13 Trixie VM, 2 GB RAM)
+
+| Metric | Measured Value | Technical Detail |
+|---|---|---|
+| **Idle RAM (`free -m`)** | **439 MB** | Out of 1967 MB total (`1527 MB` available, `0 MB` `zram` swap used) |
+| **Disk / ROM (`df -h /`)** | **3.1 GB** | Full Debian 13 OS + desktop + AI-OS stack (`796` `dpkg` packages) |
+| **AI-OS Footprint (`/opt/ai-os`)** | **680 KB** | Entire Python/Bash/UI codebase of the desktop environment |
+| **Boot Time (`systemd-analyze`)** | **2.44s** | `532ms` kernel + `1.910s` userspace (`graphical.target` in `1.825s`) |
+| **AI CLI Idle Overhead** | **0 MB / 0% CPU** | CLI agent spawns on-demand per prompt only; schedules use `crontab` + `threading.Timer` (zero polling) |
+| **AI Backend (`server.py`)** | **57.5 MB** RSS | Local FastAPI (`127.0.0.1:8765`), cron manager, ports, and system state |
+| **Native UI (`spotlight_ui.py`)** | **82.8 MB** RSS | GTK3 + WebKit2GTK (TopBar + Popovers + Spotlight) with zero Electron overhead |
+| **Desktop Stack (`openbox` + `picom` + `dunst` + `nemo-desktop`)** | **78.4 MB** RSS | `17.2 MB` + `4.8 MB` + `10.3 MB` + `46.1 MB` combined |
 
 ---
 
