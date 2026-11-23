@@ -1307,10 +1307,19 @@ class SpotlightWindow(Gtk.Window):
         if resp == Gtk.ResponseType.OK:
             self.start_agy_login()
 
+    def _sync_entry_height(self):
+        _, nat_h = self.entry.get_preferred_height()
+        target_h = max(24, min(nat_h + 2, 144))
+        self.entry_scroll.set_size_request(-1, target_h)
+        if not self.list_scroll.is_visible() and not self.reply_box.is_visible():
+            self.resize(720, 1)
+        return False
+
     def hide_results(self):
         self.divider.hide()
         self.list_scroll.hide()
         self.reply_box.hide()
+        self.entry_scroll.set_size_request(-1, 24)
         self.resize(720, 1)
 
     def on_reply_loaded(self, view, event):
@@ -1533,8 +1542,10 @@ class SpotlightWindow(Gtk.Window):
                 self._last_match_keys = None
                 self.divider.hide()
                 self.list_scroll.hide()
-            self.resize(720, 1)
+            GLib.idle_add(self._sync_entry_height)
             return
+
+        GLib.idle_add(self._sync_entry_height)
 
         keys = [(k, t) for k, t, _, _, _ in matches]
         if keys == self._last_match_keys and self.list_scroll.is_visible():
