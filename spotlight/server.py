@@ -9,6 +9,7 @@ from fastapi.responses import HTMLResponse, StreamingResponse
 from pydantic import BaseModel
 import psutil
 import uvicorn
+from i18n import get_lang, t
 
 app = FastAPI()
 BASE_DIR = Path("/opt/ai-os/spotlight")
@@ -92,7 +93,7 @@ def agy_models():
 def ask(req: PromptRequest):
     prompt = req.prompt.strip()
     if prompt in ("/new", "/clear"):
-        return {"chat_id": None, "reply": "Nova conversa agy iniciada."}
+        return {"chat_id": None, "reply": t("new_chat")}
 
     if prompt.startswith("/model "):
         model_name = prompt.split(None, 1)[1].strip()
@@ -102,9 +103,10 @@ def ask(req: PromptRequest):
             cfg["model"] = model_name
             cfg_path.parent.mkdir(parents=True, exist_ok=True)
             cfg_path.write_text(json.dumps(cfg, indent=2), encoding="utf-8")
-            return {"chat_id": req.chat_id, "reply": f"Modelo alterado para `{model_name}`."}
+            msg = f"Model set to `{model_name}`." if get_lang() == "en" else f"Modelo alterado para `{model_name}`."
+            return {"chat_id": req.chat_id, "reply": msg}
         except Exception as e:
-            return {"chat_id": req.chat_id, "reply": f"Erro ao alterar modelo: {e}"}
+            return {"chat_id": req.chat_id, "reply": f"Error: {e}"}
 
     if prompt.startswith("/mode "):
         mode_val = prompt.split(None, 1)[1].strip()
@@ -114,9 +116,10 @@ def ask(req: PromptRequest):
             cfg["agentMode"] = mode_val
             cfg_path.parent.mkdir(parents=True, exist_ok=True)
             cfg_path.write_text(json.dumps(cfg, indent=2), encoding="utf-8")
-            return {"chat_id": req.chat_id, "reply": f"Modo alterado para `{mode_val}`."}
+            msg = f"Mode set to `{mode_val}`." if get_lang() == "en" else f"Modo alterado para `{mode_val}`."
+            return {"chat_id": req.chat_id, "reply": msg}
         except Exception as e:
-            return {"chat_id": req.chat_id, "reply": f"Erro ao alterar modo: {e}"}
+            return {"chat_id": req.chat_id, "reply": f"Error: {e}"}
 
     chat_id = req.chat_id or datetime.datetime.now().strftime("%Y-%m-%d_%H%M%S")
     chat_file = CHATS_DIR / f"{chat_id}.md"
@@ -176,7 +179,7 @@ def ask_stream(req: PromptRequest):
     prompt = req.prompt.strip()
     if prompt in ("/new", "/clear"):
         def _reset():
-            yield json.dumps({"chat_id": None, "reply": "Nova conversa agy iniciada.", "done": True}) + "\n"
+            yield json.dumps({"chat_id": None, "reply": t("new_chat"), "done": True}) + "\n"
         return StreamingResponse(_reset(), media_type="application/x-ndjson")
 
     chat_id = req.chat_id or datetime.datetime.now().strftime("%Y-%m-%d_%H%M%S")

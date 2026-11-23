@@ -691,6 +691,9 @@ class TopBarWindow(Gtk.Window):
         self.lang_btn.set_label(get_lang().upper())
         self.logo_btn.set_tooltip_text(t("show_windows_tip"))
         self.popover.refresh_labels()
+        if self.win_popover.is_visible():
+            self.win_popover.hide()
+            self.win_popover.toggle_at(self.get_screen().get_monitor_geometry(0), self._last_windows or [])
 
     def set_ai_busy(self, busy: bool):
         self.logo_lbl.set_text("✦ AI..." if busy else "◉")
@@ -1033,7 +1036,7 @@ class SpotlightWindow(Gtk.Window):
                     rel = str(p).replace(str(HOME) + "/", "")
                     if not q or q in rel.lower():
                         icon_name = "folder" if p.is_dir() else "text-x-generic"
-                        matches.append(("mention", f"@{rel}", "Anexar ao pedido agy", icon_name, f"@{rel} "))
+                        matches.append(("mention", f"@{rel}", t("attach_agy"), icon_name, f"@{rel} "))
                     if len(matches) >= 7:
                         return matches
             except OSError:
@@ -1057,7 +1060,7 @@ class SpotlightWindow(Gtk.Window):
             if not self.agy_models_cache:
                 self._prefetch_models()
             return [
-                ("slash", m["label"], f"Ativar modelo ({m['id']})", "preferences-system", f"ask_now:/model {m['label']}")
+                ("slash", m["label"], t("activate_model", id=m["id"]), "preferences-system", f"ask_now:/model {m['label']}")
                 for m in self.agy_models_cache
                 if not filt or filt in m["label"].lower() or filt in m["id"].lower()
             ][:8]
@@ -1181,12 +1184,12 @@ class SpotlightWindow(Gtk.Window):
         chats_dir = HOME / ".ai-os" / "chats"
         files = sorted(chats_dir.glob("*.md"), reverse=True)[:8]
         if not files:
-            self.show_reply("Ainda sem conversas guardadas.")
+            self.show_reply(t("no_chats"))
             return
         self.reply_box.hide()
         matches = []
         for f in files:
-            preview = "Conversa guardada"
+            preview = t("saved_chat")
             try:
                 lines = [l.strip() for l in f.read_text(encoding="utf-8").splitlines() if l.strip() and not l.startswith("#")]
                 if lines:
@@ -1248,12 +1251,12 @@ class SpotlightWindow(Gtk.Window):
         chats_dir = HOME / ".ai-os" / "chats"
         files = sorted(chats_dir.glob("*.md"), reverse=True)[:8]
         if not files:
-            self.show_reply("Ainda sem conversas guardadas.")
+            self.show_reply(t("no_chats"))
             return
         self.reply_box.hide()
         matches = []
         for f in files:
-            preview = "Conversa guardada"
+            preview = t("saved_chat")
             try:
                 lines = [l.strip() for l in f.read_text(encoding="utf-8").splitlines() if l.strip() and not l.startswith("#")]
                 if lines:
@@ -1412,7 +1415,7 @@ class SpotlightWindow(Gtk.Window):
             if self.topbar:
                 GLib.idle_add(self.topbar.set_ai_busy, False)
             if not self.has_toplevel_focus():
-                subprocess.Popen(["notify-send", "AI-OS Spotlight", "Pedido concluído."])
+                subprocess.Popen(["notify-send", "AI-OS Spotlight", t("done_notify")])
 
         threading.Thread(target=_worker, daemon=True).start()
 
