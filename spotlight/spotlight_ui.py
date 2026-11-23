@@ -1928,7 +1928,7 @@ class SpotlightWindow(Gtk.Window):
         self.new_chat_btn = Gtk.Button(label=t("new_chat_btn"))
         self.new_chat_btn.get_style_context().add_class("btn-primary")
         self.new_chat_btn.set_can_focus(False)
-        self.new_chat_btn.connect("clicked", lambda *_: (setattr(self, "current_chat_id", None), update_config(last_chat_id=None), self.hide_results(), self.show_reply(t("new_chat"))))
+        self.new_chat_btn.connect("clicked", lambda *_: (setattr(self, "current_chat_id", None), update_config(last_chat_id=None), self.hide_results(), self.clear_query(), self.entry.grab_focus()))
         actions_row.pack_start(self.new_chat_btn, False, False, 0)
 
         self.litemd_btn = Gtk.Button(label=t("open_litemd"))
