@@ -18,10 +18,10 @@ It is built to run fast on both modern machines and older hardware/VMs (~**405 M
 - **Spotlight AI (`spotlight/spotlight_ui.py` + `spotlight/server.py`):**
   - Fixed 1-line bottom-docked input bar; long prompts (`>54` chars or `Shift+Enter`) pop up an editable **draft card** above sharing the exact same `Gtk.TextBuffer`.
   - **Continuous Chat UI (`Lazy WebKit2GTK`):** Real-time SSE streaming (`/api/ask_stream`), right-aligned cyan user bubbles & left-aligned AI bubbles (460px max height), **Stop (`■`)** button (`/api/ask_stop`), **`/new`**, **Copy**, and **Open in LiteMD** (opens the full conversation `.md`).
-  - **Persistent `Chat` & `Apps` Buttons:** `Apps` opens a visual list of all installed applications; `Chat` appears whenever an active conversation exists (persisted across reboots via `last_chat_id` in `~/.ai-os/config.json`).
+  - **Persistent `Chat` Button:** Appears whenever an active conversation exists (persisted across reboots via `last_chat_id` in `~/.ai-os/config.json`) so you can resume after pressing `Esc`.
   - **Separated Command Namespaces:**
     - `/` for **AGY CLI**: `/usage`, `/login`, `/logout`, `/model `, `/mode `, `/models`, `/agents`, `/mcp`, `/new`, `/clear`, `/compact`, `/plan `, `/changelog`, `/help`, plus `@file` autocomplete from `~/Desktop`, `~/Documentos`, `~/Projetos`, `~/Temp`.
-    - `#` for **AI-OS System**: `#chats`, `#audit` (AI action audit log), `#clip` (15-item clipboard history), `#screenshot`, `#displays`, `#lang ` (`pt`/`en`), `#kb ` (`pt`/`us`/`es`/`fr`/`gb`), `#update` (deterministic `apt` + repo sync), `#lock`, `#reboot`, `#poweroff`.
+    - `#` for **AI-OS System**: `#apps` (list all installed apps), `#chats`, `#audit` (AI action audit log), `#clip` (15-item clipboard history), `#screenshot`, `#displays`, `#lang ` (`pt`/`en`), `#kb ` (`pt`/`us`/`es`/`fr`/`gb`), `#update` (deterministic `apt` + repo sync), `#lock`, `#reboot`, `#poweroff`.
 - **Browser Agent (`spotlight/web_agent.py` -> `aios-web`):**
   - Lightweight **Chromium CDP** automation (`127.0.0.1:9222` via `python3-websockets`, 0 MB idle RAM).
   - Lets `agy` open sites, read interactive DOM elements (`[data-aios-id="N"]`), fill inputs/checkboxes/selects, click buttons, and verify results step by step (`AGENTS.md`).
@@ -73,10 +73,10 @@ Foi otimizado para correr rápido tanto em máquinas atuais como em hardware ant
 - **Spotlight AI (`spotlight/spotlight_ui.py` + `spotlight/server.py`):**
   - Barra fixa de 1 linha; prompts longos (`>54` chars ou `Shift+Enter`) abrem um **card editável** acima com o mesmo `Gtk.TextBuffer`.
   - **Chat Contínuo (`WebKit2GTK` lazy):** Streaming SSE em tempo real (`/api/ask_stream`), balões do utilizador à direita (ciano) e da IA à esquerda (slate, até `460px`), botão **Stop (`■`)** (`/api/ask_stop`), **`/new`**, **Copiar** e **Abrir no LiteMD** (abre o `.md` completo da conversa).
-  - **Botões `Apps` e `Chat`:** `Apps` lista todas as aplicações instaladas; `Chat` reabre a conversa ativa mesmo após `Esc` ou reboot (`last_chat_id` em `~/.ai-os/config.json`).
+  - **Botão `Chat` Persistente:** Reabre a conversa ativa mesmo após `Esc` ou reboot (`last_chat_id` em `~/.ai-os/config.json`).
   - **Comandos separados por prefixo:**
     - `/` para **AGY CLI**: `/usage`, `/login`, `/logout`, `/model `, `/mode `, `/models`, `/agents`, `/mcp`, `/new`, `/clear`, `/compact`, `/plan `, `/changelog`, `/help`, além de autocomplete `@ficheiro`.
-    - `#` para **Sistema AI-OS**: `#chats`, `#audit` (registo de auditoria da IA), `#clip` (histórico de clipboard com 15 entradas), `#screenshot`, `#displays`, `#lang ` (`pt`/`en`), `#kb ` (`pt`/`us`/`es`/`fr`/`gb`), `#update` (atualização determinística `apt` + repo), `#lock`, `#reboot`, `#poweroff`.
+    - `#` para **Sistema AI-OS**: `#apps` (listar todas as aplicações instaladas), `#chats`, `#audit` (registo de auditoria da IA), `#clip` (histórico de clipboard com 15 entradas), `#screenshot`, `#displays`, `#lang ` (`pt`/`en`), `#kb ` (`pt`/`us`/`es`/`fr`/`gb`), `#update` (atualização determinística `apt` + repo), `#lock`, `#reboot`, `#poweroff`.
 - **Browser Agent (`spotlight/web_agent.py` -> `aios-web`):**
   - Automação leve via **Chromium CDP** (`127.0.0.1:9222` com `python3-websockets`, `0 MB` RAM em idle).
   - Permite ao `agy` abrir sites, ler o DOM (`[data-aios-id="N"]`), preencher campos/checkboxes/selects, clicar em botões e confirmar resultados (`AGENTS.md`).

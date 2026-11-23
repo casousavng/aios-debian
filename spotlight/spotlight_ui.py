@@ -362,6 +362,7 @@ def get_slash_commands():
 def get_system_commands():
     return [
         ("#chats", t("slash_chats"), "local:chats"),
+        ("#apps", t("slash_apps"), "local:apps"),
         ("#audit", t("slash_audit"), "local:audit"),
         ("#clip", t("slash_clip"), "local:clip"),
         ("#screenshot", t("slash_screenshot"), "local:screenshot"),
@@ -1234,14 +1235,6 @@ class SpotlightWindow(Gtk.Window):
         vadj.connect("changed", lambda a: self.mini_scroll.set_visible(a.get_upper() > a.get_page_size() + 2))
         top_row.pack_start(self.mini_scroll, False, False, 0)
 
-        self.apps_btn = Gtk.Button(label=t("apps_btn"))
-        self.apps_btn.set_valign(Gtk.Align.END)
-        self.apps_btn.set_size_request(-1, 28)
-        self.apps_btn.get_style_context().add_class("send-arrow")
-        self.apps_btn.set_can_focus(False)
-        self.apps_btn.connect("clicked", self.toggle_all_apps)
-        top_row.pack_end(self.apps_btn, False, False, 0)
-
         self.resume_chat_btn = Gtk.Button(label="Chat")
         self.resume_chat_btn.set_valign(Gtk.Align.END)
         self.resume_chat_btn.set_size_request(-1, 28)
@@ -2003,6 +1996,9 @@ class SpotlightWindow(Gtk.Window):
             if payload == "local:chats":
                 self.clear_query()
                 self.show_chats_history()
+            elif payload == "local:apps":
+                self.clear_query()
+                self.toggle_all_apps()
             elif payload == "local:audit":
                 self.clear_query()
                 self.hide_results()
