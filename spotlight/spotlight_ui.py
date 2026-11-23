@@ -346,6 +346,31 @@ button.reply-btn:hover {
     color: #ffffff;
     font-size: 13px;
 }
+scale {
+    padding: 8px 0;
+}
+scale trough {
+    background-color: rgba(255, 255, 255, 0.14);
+    border-radius: 999px;
+    min-height: 8px;
+    border: none;
+}
+scale highlight {
+    background-image: linear-gradient(90deg, #0891b2, #67e8f9);
+    background-color: #67e8f9;
+    border-radius: 999px;
+    min-height: 8px;
+}
+scale slider {
+    background-image: none;
+    background-color: #f8fafc;
+    border: 2px solid #67e8f9;
+    border-radius: 999px;
+    min-width: 16px;
+    min-height: 16px;
+    margin: -4px 0;
+    box-shadow: none;
+}
 """
 
 
@@ -486,6 +511,7 @@ class WindowsPopover(Gtk.Window):
         self.card.set_size_request(260, -1)
         self.add(self.card)
         self._hovering = False
+        self._trigger_hovering = False
         self.add_events(Gdk.EventMask.ENTER_NOTIFY_MASK | Gdk.EventMask.LEAVE_NOTIFY_MASK)
         self.connect("enter-notify-event", self._on_enter)
         self.connect("leave-notify-event", self._on_leave)
@@ -629,6 +655,36 @@ class RemindersPopover(Gtk.Window):
 
         self.tab_notif_btn.connect("clicked", lambda *_: self._switch_tab("notif"))
         self.tab_auto_btn.connect("clicked", lambda *_: self._switch_tab("auto"))
+
+        self._hovering = False
+        self._trigger_hovering = False
+        self.add_events(Gdk.EventMask.ENTER_NOTIFY_MASK | Gdk.EventMask.LEAVE_NOTIFY_MASK)
+        self.connect("enter-notify-event", self._on_enter)
+        self.connect("leave-notify-event", self._on_leave)
+
+    def _on_enter(self, *_):
+        self._hovering = True
+        return False
+
+    def _on_leave(self, _, event):
+        if event.detail == Gdk.NotifyType.INFERIOR:
+            return False
+        self._hovering = False
+        GLib.timeout_add(240, self._maybe_hide)
+        return False
+
+    def _maybe_hide(self):
+        if not self._hovering and not self._trigger_hovering:
+            self.hide()
+        return False
+
+    def show_at(self, geom):
+        if self.is_visible():
+            return
+        self.refresh_labels()
+        self.move(geom.x + geom.width - 344, geom.y + 34)
+        self.show_all()
+        self._load_async()
 
     def _switch_tab(self, name):
         self.stack.set_visible_child_name(name)
@@ -879,6 +935,7 @@ class ControlPopover(Gtk.Window):
         self.tab_sys_btn.connect("clicked", lambda *_: self._switch_tab("sys"))
 
         self._hovering = False
+        self._trigger_hovering = False
         self.add_events(Gdk.EventMask.ENTER_NOTIFY_MASK | Gdk.EventMask.LEAVE_NOTIFY_MASK)
         self.connect("enter-notify-event", self._on_enter)
         self.connect("leave-notify-event", self._on_leave)
@@ -959,7 +1016,7 @@ class ControlPopover(Gtk.Window):
         return False
 
     def _maybe_hide(self):
-        if not self._hovering:
+        if not self._hovering and not self._trigger_hovering:
             self.hide()
         return False
 
@@ -1080,17 +1137,22 @@ class ControlPopover(Gtk.Window):
             except Exception:
                 pass
 
-    def toggle_at(self, geom):
+    def show_at(self, geom):
         if self.is_visible():
-            self.hide()
             return
         import datetime
         self.dt_lbl.set_text(datetime.datetime.now().strftime("%a %d %b · %H:%M"))
         kb = get_config().get("kb_layout", "pt").upper()
         self.info_lbl.set_text(f"{t('podman_ready')} · KB: {kb}")
-        self.move(geom.x + geom.width - 304, geom.y + 34)
+        self.move(geom.x + geom.width - 324, geom.y + 34)
         self.show_all()
         threading.Thread(target=self._populate_async, daemon=True).start()
+
+    def toggle_at(self, geom):
+        if self.is_visible():
+            self.hide()
+            return
+        self.show_at(geom)
 
     def _populate_async(self):
         try:
@@ -1426,6 +1488,9 @@ class TopBarWindow(Gtk.Window):
         status_btn = Gtk.Button()
         status_btn.set_can_focus(False)
         status_btn.get_style_context().add_class("status-trigger")
+        status_btn.add_events(Gdk.EventMask.ENTER_NOTIFY_MASK | Gdk.EventMask.LEAVE_NOTIFY_MASK)
+        status_btn.connect("enter-notify-event", lambda *_: (self.rem_popover.hide(), self.win_popover.hide(), setattr(self.popover, "_trigger_hovering", True), self.popover.show_at(geom), False)[4])
+        status_btn.connect("leave-notify-event", lambda _, ev: False if ev.detail == Gdk.NotifyType.INFERIOR else (setattr(self.popover, "_trigger_hovering", False), GLib.timeout_add(240, self.popover._maybe_hide), False)[2])
         status_btn.connect("clicked", lambda *_: (self.rem_popover.hide(), self.popover.toggle_at(geom)))
         status_inner = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
         status_btn.add(status_inner)
@@ -1445,6 +1510,9 @@ class TopBarWindow(Gtk.Window):
         self.bell_btn.get_style_context().add_class("status-trigger")
         self.bell_btn.set_tooltip_text(t("bell_tip"))
         self.on_lang_changed = None
+        self.bell_btn.add_events(Gdk.EventMask.ENTER_NOTIFY_MASK | Gdk.EventMask.LEAVE_NOTIFY_MASK)
+        self.bell_btn.connect("enter-notify-event", lambda *_: (self.popover.hide(), self.win_popover.hide(), setattr(self.rem_popover, "_trigger_hovering", True), self.rem_popover.show_at(geom), False)[4])
+        self.bell_btn.connect("leave-notify-event", lambda _, ev: False if ev.detail == Gdk.NotifyType.INFERIOR else (setattr(self.rem_popover, "_trigger_hovering", False), GLib.timeout_add(240, self.rem_popover._maybe_hide), False)[2])
         self.bell_btn.connect("clicked", lambda *_: (self.popover.hide(), self.rem_popover.toggle_at(geom)))
         bar.pack_end(self.bell_btn, False, False, 0)
 
