@@ -18,8 +18,9 @@ from i18n import get_lang, set_lang, t
 
 gi.require_version("Gtk", "3.0")
 gi.require_version("Gdk", "3.0")
-gi.require_version("WebKit2", "4.1")
-from gi.repository import Gdk, GLib, Gtk, Pango, WebKit2  # noqa: E402
+from gi.repository import Gdk, GLib, Gtk, Pango  # noqa: E402
+
+WebKit2 = None
 
 REPLY_HTML = """<!DOCTYPE html>
 <html><head><meta charset="utf-8"><style>
@@ -922,13 +923,7 @@ class SpotlightWindow(Gtk.Window):
         actions_row.pack_end(self.copy_btn, False, False, 0)
         self.reply_box.pack_start(actions_row, False, False, 0)
 
-        self.reply_view = WebKit2.WebView()
-        self.reply_view.set_background_color(Gdk.RGBA(0, 0, 0, 0))
-        wsettings = self.reply_view.get_settings()
-        wsettings.set_enable_javascript(True)
-        self.reply_view.connect("load-changed", self.on_reply_loaded)
-        self.reply_view.set_size_request(-1, 48)
-        self.reply_box.pack_start(self.reply_view, True, True, 0)
+        self.reply_view = None
         self.card.pack_start(self.reply_box, False, False, 0)
 
         # Results list (grows upwards above input bar)
@@ -1148,7 +1143,24 @@ class SpotlightWindow(Gtk.Window):
         out.write_text(self.last_reply_md, encoding="utf-8")
         subprocess.Popen(["litemd", str(out)])
 
+    def _ensure_reply_view(self):
+        if self.reply_view is not None:
+            return
+        global WebKit2
+        if WebKit2 is None:
+            import gi
+            gi.require_version("WebKit2", "4.1")
+            from gi.repository import WebKit2 as _WK2
+            WebKit2 = _WK2
+        self.reply_view = WebKit2.WebView()
+        self.reply_view.set_background_color(Gdk.RGBA(0, 0, 0, 0))
+        self.reply_view.get_settings().set_enable_javascript(True)
+        self.reply_view.connect("load-changed", self.on_reply_loaded)
+        self.reply_view.set_size_request(-1, 48)
+        self.reply_box.pack_start(self.reply_view, True, True, 0)
+
     def show_reply(self, text):
+        self._ensure_reply_view()
         self.last_reply_md = text
         self.divider.show()
         self.list_scroll.hide()

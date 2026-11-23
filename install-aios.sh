@@ -12,7 +12,7 @@ sudo DEBIAN_FRONTEND=noninteractive apt-get install -y \
   xorg xinit openbox pcmanfm picom wmctrl x11-xserver-utils papirus-icon-theme librsvg2-common \
   python3-gi python3-gi-cairo python3-cairo gir1.2-gtk-3.0 gir1.2-webkit2-4.1 python3-markdown spice-vdagent \
   network-manager cups brightnessctl pipewire wireplumber dunst libnotify-bin podman ufw i3lock \
-  gvfs gvfs-backends udisks2 scrot lxpolkit xss-lock \
+  gvfs gvfs-backends udisks2 scrot lxpolkit xss-lock gpicview \
   python3 python3-fastapi python3-uvicorn python3-psutil \
   curl git libglib2.0-bin xterm zram-tools
 
@@ -50,6 +50,15 @@ HandlePowerKey=poweroff
 IdleAction=ignore
 EOF
 
+sudo mkdir -p /etc/systemd/journald.conf.d
+cat << 'EOF' | sudo tee /etc/systemd/journald.conf.d/99-aios.conf >/dev/null
+[Journal]
+SystemMaxUse=50M
+RuntimeMaxUse=20M
+EOF
+sudo systemctl disable --now cups.service || true
+sudo systemctl enable cups.socket || true
+
 echo "=== [4/6] Instalar aplicação Spotlight e Antigravity CLI (agy) ==="
 if ! command -v agy >/dev/null 2>&1 && [ ! -x "$HOME/.local/bin/agy" ]; then
   curl -fsSL https://antigravity.google/cli/install.sh | bash || true
@@ -70,6 +79,7 @@ MimeType=text/markdown;text/x-markdown;
 Categories=Utility;Office;
 EOF
 xdg-mime default litemd.desktop text/markdown text/x-markdown
+xdg-mime default gpicview.desktop image/png image/jpeg image/gif image/webp image/bmp
 
 echo "=== [5/6] Configurar serviço systemd (user) para o backend do Spotlight ==="
 mkdir -p "$HOME/.config/systemd/user"
