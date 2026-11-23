@@ -102,7 +102,7 @@ window.enhanceReply = function() {
     };
     pre.appendChild(btn);
   });
-  document.querySelectorAll('.bubble').forEach(function(b) {
+  document.querySelectorAll('.bubble-ai').forEach(function(b) {
     if (b.querySelector('.msg-copy-btn') || b.querySelector('.thinking-pill')) return;
     var mb = document.createElement('button');
     mb.className = 'msg-copy-btn';
@@ -403,6 +403,22 @@ button.reply-btn {
 }
 button.reply-btn:hover {
     background-color: rgba(103, 232, 249, 0.22);
+    color: #ffffff;
+}
+button.btn-primary {
+    background-image: none;
+    background-color: rgba(14, 165, 233, 0.22);
+    border: 1px solid rgba(103, 232, 249, 0.50);
+    border-radius: 7px;
+    color: #7dd3fc;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 10px;
+    min-height: 0;
+    min-width: 0;
+}
+button.btn-primary:hover {
+    background-color: rgba(14, 165, 233, 0.36);
     color: #ffffff;
 }
 .ai-reply-text {
@@ -1909,31 +1925,27 @@ class SpotlightWindow(Gtk.Window):
         self.reply_box.get_style_context().add_class("ai-reply-box")
         actions_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
         actions_row.get_style_context().add_class("reply-actions")
-        font_dec_btn = Gtk.Button(label="A-")
-        font_dec_btn.get_style_context().add_class("reply-btn")
-        font_dec_btn.set_can_focus(False)
-        font_dec_btn.connect("clicked", lambda *_: self._step_chat_font(-1))
-        font_inc_btn = Gtk.Button(label="A+")
-        font_inc_btn.get_style_context().add_class("reply-btn")
-        font_inc_btn.set_can_focus(False)
-        font_inc_btn.connect("clicked", lambda *_: self._step_chat_font(1))
-        actions_row.pack_start(font_dec_btn, False, False, 0)
-        actions_row.pack_start(font_inc_btn, False, False, 0)
-        self.copy_btn = Gtk.Button(label=t("copy"))
-        self.copy_btn.get_style_context().add_class("reply-btn")
-        self.copy_btn.set_can_focus(False)
-        self.copy_btn.connect("clicked", self.on_copy_reply)
+        self.new_chat_btn = Gtk.Button(label=t("new_chat_btn"))
+        self.new_chat_btn.get_style_context().add_class("btn-primary")
+        self.new_chat_btn.set_can_focus(False)
+        self.new_chat_btn.connect("clicked", lambda *_: (setattr(self, "current_chat_id", None), update_config(last_chat_id=None), self.hide_results(), self.show_reply(t("new_chat"))))
+        actions_row.pack_start(self.new_chat_btn, False, False, 0)
+
         self.litemd_btn = Gtk.Button(label=t("open_litemd"))
         self.litemd_btn.get_style_context().add_class("reply-btn")
         self.litemd_btn.set_can_focus(False)
         self.litemd_btn.connect("clicked", self.on_open_litemd)
-        self.new_chat_btn = Gtk.Button(label=t("new_chat_btn"))
-        self.new_chat_btn.get_style_context().add_class("reply-btn")
-        self.new_chat_btn.set_can_focus(False)
-        self.new_chat_btn.connect("clicked", lambda *_: (setattr(self, "current_chat_id", None), update_config(last_chat_id=None), self.hide_results(), self.show_reply(t("new_chat"))))
+        font_inc_btn = Gtk.Button(label="A+")
+        font_inc_btn.get_style_context().add_class("reply-btn")
+        font_inc_btn.set_can_focus(False)
+        font_inc_btn.connect("clicked", lambda *_: self._step_chat_font(1))
+        font_dec_btn = Gtk.Button(label="A-")
+        font_dec_btn.get_style_context().add_class("reply-btn")
+        font_dec_btn.set_can_focus(False)
+        font_dec_btn.connect("clicked", lambda *_: self._step_chat_font(-1))
         actions_row.pack_end(self.litemd_btn, False, False, 0)
-        actions_row.pack_end(self.copy_btn, False, False, 0)
-        actions_row.pack_end(self.new_chat_btn, False, False, 0)
+        actions_row.pack_end(font_inc_btn, False, False, 0)
+        actions_row.pack_end(font_dec_btn, False, False, 0)
         self.reply_box.pack_start(actions_row, False, False, 0)
 
         self.reply_scroll = Gtk.ScrolledWindow()
@@ -2121,7 +2133,6 @@ class SpotlightWindow(Gtk.Window):
 
     def apply_lang(self):
         self.placeholder_lbl.set_text(t("placeholder"))
-        self.copy_btn.set_label(t("copy"))
         self.litemd_btn.set_label(t("open_litemd"))
         self.new_chat_btn.set_label(t("new_chat_btn"))
         self._last_match_keys = None
