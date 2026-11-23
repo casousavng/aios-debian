@@ -113,7 +113,11 @@ def agy_auth_login_start():
 
     pid, fd = pty.fork()
     if pid == 0:
-        os.execv(str(agy_bin), ["agy"])
+        child_env = os.environ.copy()
+        child_env["TERM"] = "xterm-256color"
+        child_env["COLUMNS"] = "120"
+        child_env["LINES"] = "40"
+        os.execve(str(agy_bin), ["agy"], child_env)
 
     _AUTH_SESSION["pid"] = pid
     _AUTH_SESSION["fd"] = fd
@@ -121,21 +125,25 @@ def agy_auth_login_start():
     sent_enter = False
     start = time.time()
     url = None
-    while time.time() - start < 15:
-        if not sent_enter and time.time() - start > 2.2:
-            os.write(fd, b"\r")
-            sent_enter = True
-        r, _, _ = select.select([fd], [], [], 0.25)
+    while time.time() - start < 20:
+        r, _, _ = select.select([fd], [], [], 0.2)
         if fd in r:
             try:
                 buf += os.read(fd, 4096)
             except OSError:
                 break
             text = re.sub(r"\x1b\[[0-9;?]*[A-Za-z]", "", buf.decode("utf-8", errors="ignore"))
+            if not sent_enter and ("Select login method" in text or "Google OAuth" in text):
+                time.sleep(0.2)
+                os.write(fd, b"\r")
+                sent_enter = True
             m = re.search(r"─+\s*(https://accounts\.google\.com/.*?)─+", text, re.S)
             if m:
                 url = re.sub(r"\s+", "", m.group(1))
                 break
+        elif not sent_enter and time.time() - start > 4.0:
+            os.write(fd, b"\r")
+            sent_enter = True
 
     if url:
         env = os.environ.copy()
