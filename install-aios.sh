@@ -66,6 +66,7 @@ SystemMaxUse=50M
 RuntimeMaxUse=20M
 EOF
 sudo systemctl disable --now netavark-firewalld-reload.service || true
+sudo systemctl disable --now man-db.timer || true
 sudo systemctl enable --now earlyoom || true
 
 echo "=== [4/6] Instalar aplicação Spotlight e Antigravity CLI (agy) ==="
