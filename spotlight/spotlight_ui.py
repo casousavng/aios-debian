@@ -740,12 +740,13 @@ class TopBarWindow(Gtk.Window):
 
     def _confirm_lang_switch(self):
         dlg = Gtk.MessageDialog(
-            transient_for=self,
             flags=0,
             message_type=Gtk.MessageType.WARNING,
             buttons=Gtk.ButtonsType.NONE,
             text=t("lang_confirm_title"),
         )
+        dlg.set_position(Gtk.WindowPosition.CENTER_ALWAYS)
+        dlg.set_keep_above(True)
         dlg.format_secondary_text(t("lang_confirm_msg"))
         dlg.add_button(t("cancel"), Gtk.ResponseType.CANCEL)
         dlg.add_button(t("confirm"), Gtk.ResponseType.OK)
