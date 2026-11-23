@@ -1698,11 +1698,24 @@ class TopBarWindow(Gtk.Window):
         status_inner.pack_end(wifi_box, False, False, 0)
 
         self.move(geom.x, geom.y)
+        self.connect("realize", lambda *_: self._set_top_strut(geom))
         self.add_events(Gdk.EventMask.SCROLL_MASK | Gdk.EventMask.SMOOTH_SCROLL_MASK)
         self.connect("scroll-event", self._on_topbar_scroll)
         self.show_all()
         self.refresh_windows()
         GLib.timeout_add_seconds(1, self.refresh_windows)
+
+    def _set_top_strut(self, geom):
+        win = self.get_window()
+        if not win:
+            return
+        try:
+            xid = str(win.get_xid())
+            x0, x1 = geom.x, geom.x + geom.width - 1
+            subprocess.Popen(["xprop", "-id", xid, "-f", "_NET_WM_STRUT", "32c", "-set", "_NET_WM_STRUT", "0,0,28,0"])
+            subprocess.Popen(["xprop", "-id", xid, "-f", "_NET_WM_STRUT_PARTIAL", "32c", "-set", "_NET_WM_STRUT_PARTIAL", f"0,0,28,0,0,0,0,0,{x0},{x1},0,0"])
+        except Exception:
+            pass
 
     def _on_topbar_scroll(self, _, event):
         delta = 0
