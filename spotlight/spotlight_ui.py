@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """AI-OS Native macOS-style Spotlight launcher & AI command bar."""
 import glob
-import html
 import json
 import os
 import re
@@ -326,16 +325,6 @@ button.reply-btn:hover {
     font-size: 13px;
 }
 """
-
-SYSTEM_ACTIONS = [
-    ("Terminal", "Abrir consola (xterm)", "utilities-terminal", lambda: subprocess.Popen(["xterm"])),
-    ("Ficheiros", "Abrir gestor de ficheiros (PCManFM)", "system-file-manager", lambda: subprocess.Popen(["pcmanfm", str(HOME)])),
-    ("Navegador", "Abrir Chromium", "web-browser", lambda: subprocess.Popen(["chromium"])),
-    ("Estado do Sistema", "Ver CPU, RAM e disco", "utilities-system-monitor", "ask:Mostra resumo rápido de CPU, RAM e disco desta máquina."),
-    ("Bloquear Ecrã", "Bloquear sessão (Super+L)", "system-lock-screen", lambda: subprocess.Popen(["/opt/ai-os/spotlight/lock.sh"])),
-    ("Reiniciar VM", "Reiniciar o sistema", "system-reboot", lambda: subprocess.Popen(["sudo", "reboot"])),
-    ("Desligar VM", "Desligar o sistema", "system-shutdown", lambda: subprocess.Popen(["sudo", "poweroff"])),
-]
 
 
 def clear_transparent(widget, ctx):
@@ -779,6 +768,36 @@ class ControlPopover(Gtk.Window):
         self.hide()
         GLib.idle_add(self._show_wifi_dialog, ssid)
 
+    def _set_audio_sink(self, sink_id):
+        def _w():
+            try:
+                req = urllib.request.Request(
+                    f"{API_BASE}/api/audio/default",
+                    data=json.dumps({"id": sink_id}).encode(),
+                    headers={"Content-Type": "application/json"},
+                    method="POST",
+                )
+                urllib.request.urlopen(req, timeout=3).read()
+            except Exception:
+                pass
+        threading.Thread(target=_w, daemon=True).start()
+        self.hide()
+
+    def _toggle_bt_dev(self, mac):
+        def _w():
+            try:
+                req = urllib.request.Request(
+                    f"{API_BASE}/api/bt/connect",
+                    data=json.dumps({"mac": mac}).encode(),
+                    headers={"Content-Type": "application/json"},
+                    method="POST",
+                )
+                urllib.request.urlopen(req, timeout=8).read()
+            except Exception:
+                pass
+        threading.Thread(target=_w, daemon=True).start()
+        self.hide()
+
     def _show_wifi_dialog(self, ssid):
         dlg = Gtk.Dialog(title=ssid, flags=0)
         dlg.set_position(Gtk.WindowPosition.CENTER_ALWAYS)
@@ -943,7 +962,8 @@ def open_settings_dialog(spotlight):
                         method="POST",
                     )
                     res = json.loads(urllib.request.urlopen(req, timeout=8).read().decode())
-                    GLib.idle_add(model_lbl.set_text, f"{res.get('model', '')} ({res.get('mode', 'auto')})")
+                    txt = f"{res.get('model', '')} ({res.get('mode', 'auto')})"
+                    GLib.idle_add(lambda: (model_lbl.get_realized() and model_lbl.set_text(txt), False)[1])
                 except Exception:
                     pass
             threading.Thread(target=_w, daemon=True).start()
@@ -1034,26 +1054,6 @@ def open_settings_dialog(spotlight):
     dlg.show_all()
     dlg.present()
 
-    def _set_audio_sink(self, sink_id):
-        req = urllib.request.Request(
-            f"{API_BASE}/api/audio/default",
-            data=json.dumps({"id": sink_id}).encode(),
-            headers={"Content-Type": "application/json"},
-            method="POST",
-        )
-        threading.Thread(target=lambda: urllib.request.urlopen(req, timeout=3).read(), daemon=True).start()
-        self.hide()
-
-    def _toggle_bt_dev(self, mac):
-        req = urllib.request.Request(
-            f"{API_BASE}/api/bt/connect",
-            data=json.dumps({"mac": mac}).encode(),
-            headers={"Content-Type": "application/json"},
-            method="POST",
-        )
-        threading.Thread(target=lambda: urllib.request.urlopen(req, timeout=8).read(), daemon=True).start()
-        self.hide()
-
 
 class TopBarWindow(Gtk.Window):
     def __init__(self):
@@ -1076,7 +1076,6 @@ class TopBarWindow(Gtk.Window):
         if visual and screen.is_composited():
             self.set_visual(visual)
         self.set_app_paintable(True)
-        self.connect("draw", clear_transparent)
         self.connect("draw", clear_transparent)
 
         display = Gdk.Display.get_default()
@@ -1755,6 +1754,15 @@ class SpotlightWindow(Gtk.Window):
     def on_reply_loaded(self, view, event):
         if event != WebKit2.LoadEvent.FINISHED:
             return
+        self._reply_ready = True
+        self._reply_loading = False
+        pending = getattr(self, "_pending_reply_update", None)
+        if pending:
+            self._pending_reply_update = None
+            fsize, body = pending
+            js = f"document.body.style.fontSize='{fsize}px'; document.body.innerHTML = {json.dumps(body)}; window.scrollTo(0, document.body.scrollHeight); document.body.scrollHeight;"
+            view.evaluate_javascript(js, -1, None, None, None, self._on_reply_height, None)
+            return
         view.evaluate_javascript(
             "window.scrollTo(0, document.body.scrollHeight); document.body.scrollHeight",
             -1, None, None, None, self._on_reply_height, None
@@ -1863,8 +1871,11 @@ class SpotlightWindow(Gtk.Window):
         if getattr(self, "_reply_ready", False):
             js = f"document.body.style.fontSize='{fsize}px'; document.body.innerHTML = {json.dumps(body)}; window.scrollTo(0, document.body.scrollHeight); document.body.scrollHeight;"
             self.reply_view.evaluate_javascript(js, -1, None, None, None, self._on_reply_height, None)
+        elif getattr(self, "_reply_loading", False):
+            self._pending_reply_update = (fsize, body)
         else:
-            self._reply_ready = True
+            self._reply_loading = True
+            self._pending_reply_update = None
             html_out = REPLY_HTML.replace("font-size: 13px;", f"font-size: {fsize}px;").replace("%BODY%", body)
             self.reply_view.load_html(html_out, "file:///")
         self._sync_chat_btn()
@@ -1998,9 +2009,13 @@ class SpotlightWindow(Gtk.Window):
         # 3. Files in user folders
         count = 0
         for base in SEARCH_DIRS:
-            if not base.exists():
+            try:
+                if not base.exists():
+                    continue
+                entries = list(base.iterdir())
+            except OSError:
                 continue
-            for p in base.iterdir():
+            for p in entries:
                 if q in p.name.lower():
                     icon_name = "folder" if p.is_dir() else "text-x-generic"
                     matches.append(("file", p.name, str(p).replace(str(HOME), "~"), icon_name, str(p)))
@@ -2082,141 +2097,6 @@ class SpotlightWindow(Gtk.Window):
 
         self.divider.show()
         self._show_list_scroll()
-
-    def toggle_all_apps(self, *_):
-        if self.list_scroll.is_visible() and self._last_match_keys == "__all_apps__":
-            self.hide_results()
-            return
-        self.reply_box.hide()
-        self.draft_box.hide()
-        matches = [("action", title, sub, icon_name, action) for title, sub, icon_name, action in get_system_actions()]
-        for name, cmd, icon_name in sorted(self.apps, key=lambda a: a[0].lower()):
-            matches.append(("app", name, t("open_app", cmd=cmd.split()[0]), icon_name, cmd))
-        self.results = matches
-        self._last_match_keys = "__all_apps__"
-        for child in self.listbox.get_children():
-            self.listbox.remove(child)
-        for _, title, sub, icon_name, _ in matches:
-            row = Gtk.ListBoxRow()
-            hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
-            ico = Gtk.Image.new_from_icon_name(icon_name, Gtk.IconSize.LARGE_TOOLBAR)
-            ico.set_pixel_size(20)
-            hbox.pack_start(ico, False, False, 0)
-            box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=1)
-            t_lbl = Gtk.Label(label=title, xalign=0)
-            t_lbl.get_style_context().add_class("row-title")
-            s_lbl = Gtk.Label(label=sub, xalign=0)
-            s_lbl.get_style_context().add_class("row-sub")
-            box.pack_start(t_lbl, False, False, 0)
-            box.pack_start(s_lbl, False, False, 0)
-            hbox.pack_start(box, True, True, 0)
-            row.add(hbox)
-            self.listbox.add(row)
-        self.divider.show()
-        self._show_list_scroll()
-        self._sync_chat_btn()
-
-    def toggle_ai_profiles(self, *_):
-        if self.list_scroll.is_visible() and self._last_match_keys == "__profiles__":
-            self.hide_results()
-            return
-        self.reply_box.hide()
-        self.draft_box.hide()
-        matches = [
-            ("profile", *t("prof_fast"), "media-playback-start", "fast"),
-            ("profile", *t("prof_deep"), "preferences-system", "deep"),
-            ("profile", *t("prof_plan"), "document-edit", "plan"),
-            ("fontsize", *t("font_small"), "zoom-out", 12),
-            ("fontsize", *t("font_normal"), "zoom-original", 13),
-            ("fontsize", *t("font_large"), "zoom-in", 15),
-        ]
-        self.results = matches
-        self._last_match_keys = "__profiles__"
-        for child in self.listbox.get_children():
-            self.listbox.remove(child)
-        for _, title, sub, icon_name, _ in matches:
-            row = Gtk.ListBoxRow()
-            hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
-            ico = Gtk.Image.new_from_icon_name(icon_name, Gtk.IconSize.LARGE_TOOLBAR)
-            ico.set_pixel_size(20)
-            hbox.pack_start(ico, False, False, 0)
-            box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=1)
-            t_lbl = Gtk.Label(label=title, xalign=0)
-            t_lbl.get_style_context().add_class("row-title")
-            s_lbl = Gtk.Label(label=sub, xalign=0)
-            s_lbl.get_style_context().add_class("row-sub")
-            box.pack_start(t_lbl, False, False, 0)
-            box.pack_start(s_lbl, False, False, 0)
-            hbox.pack_start(box, True, True, 0)
-            row.add(hbox)
-            self.listbox.add(row)
-        self.divider.show()
-        self._show_list_scroll()
-        self._sync_chat_btn()
-
-    def show_chats_history(self):
-        chats_dir = HOME / ".ai-os" / "chats"
-        files = sorted(chats_dir.glob("*.md"), reverse=True)[:8]
-        if not files:
-            self.show_reply(t("no_chats"))
-            return
-        self.reply_box.hide()
-        matches = []
-        for f in files:
-            preview = t("saved_chat")
-            try:
-                lines = [l.strip() for l in f.read_text(encoding="utf-8").splitlines() if l.strip() and not l.startswith("#")]
-                if lines:
-                    preview = lines[0][:70]
-            except OSError:
-                pass
-            matches.append(("chat", f.stem, preview, "document-open-recent", f.stem))
-        self.results = matches
-        self._last_match_keys = None
-        for child in self.listbox.get_children():
-            self.listbox.remove(child)
-        for _, title, sub, icon_name, _ in matches:
-            row = Gtk.ListBoxRow()
-            hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
-            ico = Gtk.Image.new_from_icon_name(icon_name, Gtk.IconSize.LARGE_TOOLBAR)
-            ico.set_pixel_size(20)
-            hbox.pack_start(ico, False, False, 0)
-            box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=1)
-            t_lbl = Gtk.Label(label=title, xalign=0)
-            t_lbl.get_style_context().add_class("row-title")
-            s_lbl = Gtk.Label(label=sub, xalign=0)
-            s_lbl.set_ellipsize(Pango.EllipsizeMode.END)
-            s_lbl.set_max_width_chars(70)
-            s_lbl.get_style_context().add_class("row-sub")
-            box.pack_start(t_lbl, False, False, 0)
-            box.pack_start(s_lbl, False, False, 0)
-            hbox.pack_start(box, True, True, 0)
-            row.add(hbox)
-            self.listbox.add(row)
-        self.divider.show()
-        self._show_list_scroll()
-
-    def on_entry_key_press(self, _, event):
-        if (event.state & Gdk.ModifierType.CONTROL_MASK) and event.keyval in (Gdk.KEY_h, Gdk.KEY_H):
-            self.show_chats_history()
-            return True
-        if event.keyval in (Gdk.KEY_Return, Gdk.KEY_KP_Enter):
-            if event.state & Gdk.ModifierType.SHIFT_MASK:
-                return False
-            self.on_activate()
-            return True
-        if (event.state & Gdk.ModifierType.CONTROL_MASK) and event.keyval in (Gdk.KEY_Up, Gdk.KEY_Down):
-            if not self.history:
-                return True
-            if event.keyval == Gdk.KEY_Up:
-                self.hist_idx = max(0, self.hist_idx - 1)
-            else:
-                self.hist_idx = min(len(self.history), self.hist_idx + 1)
-            txt = self.history[self.hist_idx] if self.hist_idx < len(self.history) else ""
-            self.entry_buf.set_text(txt)
-            self.entry_buf.place_cursor(self.entry_buf.get_end_iter())
-            return True
-        return False
 
     def _on_clip_change(self, clipboard, _event):
         txt = clipboard.wait_for_text()
@@ -2610,10 +2490,16 @@ class SpotlightWindow(Gtk.Window):
 
     def on_stop_ai(self, *_):
         self._cancelled = True
+        self._active_run_id = getattr(self, "_active_run_id", 0) + 1
         self._set_busy(False)
         self.show_reply(t("ai_stopped"))
-        req = urllib.request.Request(f"{API_BASE}/api/ask_stop", data=b"{}", method="POST")
-        threading.Thread(target=lambda: urllib.request.urlopen(req, timeout=3).read(), daemon=True).start()
+        def _stop_req():
+            try:
+                req = urllib.request.Request(f"{API_BASE}/api/ask_stop", data=b"{}", method="POST")
+                urllib.request.urlopen(req, timeout=3).read()
+            except Exception:
+                pass
+        threading.Thread(target=_stop_req, daemon=True).start()
 
     def send_to_ai(self, prompt):
         if prompt.strip().startswith(("#lang ", "/lang ")):
@@ -2647,6 +2533,9 @@ class SpotlightWindow(Gtk.Window):
             update_config(last_chat_id=None)
         self._pending_prompt = prompt
         self._cancelled = False
+        run_id = getattr(self, "_active_run_id", 0) + 1
+        self._active_run_id = run_id
+        chat_id_snapshot = self.current_chat_id
         self._save_history(prompt)
         self.clear_query()
         self.show_reply(t("processing"), live_stream=True)
@@ -2657,23 +2546,24 @@ class SpotlightWindow(Gtk.Window):
             acc = []
             last_render = 0.0
             final_reply = None
+            new_chat_id = None
             try:
                 req = urllib.request.Request(
                     f"{API_BASE}/api/ask_stream",
-                    data=json.dumps({"prompt": prompt, "chat_id": self.current_chat_id}).encode(),
+                    data=json.dumps({"prompt": prompt, "chat_id": chat_id_snapshot}).encode(),
                     headers={"Content-Type": "application/json"},
                     method="POST",
                 )
                 with urllib.request.urlopen(req, timeout=180) as r:
                     for raw in r:
+                        if self._cancelled or run_id != self._active_run_id:
+                            return
                         line = raw.decode("utf-8", errors="ignore").strip()
                         if not line:
                             continue
                         ev = json.loads(line)
                         if ev.get("done"):
-                            self.current_chat_id = ev.get("chat_id")
-                            if self.current_chat_id:
-                                update_config(last_chat_id=self.current_chat_id)
+                            new_chat_id = ev.get("chat_id")
                             final_reply = ev.get("reply", "Concluído.")
                         elif ev.get("status") and not acc:
                             raw_t = str(ev["status"])
@@ -2685,22 +2575,31 @@ class SpotlightWindow(Gtk.Window):
                                 "edit_file": "edição" if get_lang() == "pt" else "editing",
                                 "search_web": "pesquisa web" if get_lang() == "pt" else "web search",
                             }.get(raw_t, "ação" if get_lang() == "pt" else "action")
-                            GLib.idle_add(self.show_reply, f"⚙ {t('step_tool', tool=friendly)}", True)
+                            GLib.idle_add(lambda msg=f"⚙ {t('step_tool', tool=friendly)}": (run_id == self._active_run_id and not self._cancelled and self.show_reply(msg, True), False)[1])
                         elif ev.get("delta"):
                             acc.append(ev["delta"])
                             now = time.monotonic()
                             if now - last_render > 0.18:
                                 last_render = now
-                                GLib.idle_add(self.show_reply, "".join(acc), True)
+                                txt = "".join(acc)
+                                GLib.idle_add(lambda msg=txt: (run_id == self._active_run_id and not self._cancelled and self.show_reply(msg, True), False)[1])
                 reply = final_reply or "".join(acc) or "Concluído."
             except Exception as e:
                 reply = f"Erro ao contactar backend AI-OS: {e}"
 
-            if not self._cancelled:
-                GLib.idle_add(self.show_reply, reply)
-            GLib.idle_add(self._set_busy, False)
-            if not self.has_toplevel_focus() and not self._cancelled:
-                subprocess.Popen(["notify-send", "AI-OS Spotlight", t("done_notify")])
+            def _finish():
+                if self._cancelled or run_id != self._active_run_id:
+                    return False
+                if new_chat_id:
+                    self.current_chat_id = new_chat_id
+                    update_config(last_chat_id=new_chat_id)
+                self.show_reply(reply)
+                self._set_busy(False)
+                if not self.has_toplevel_focus():
+                    subprocess.Popen(["notify-send", "AI-OS Spotlight", t("done_notify")])
+                return False
+
+            GLib.idle_add(_finish)
 
         threading.Thread(target=_worker, daemon=True).start()
 
