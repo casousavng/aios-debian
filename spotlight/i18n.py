@@ -129,6 +129,9 @@ STRINGS = {
         "confirm_danger_btn": "Confirmar e Executar",
         "action_cancelled": "Ação cancelada pelo utilizador.",
         "danger_blocked": "⚠️ Ação sensível bloqueada: requer confirmação explícita.",
+        "slash_remind": "Agendar lembrete (ex: #remind 10m pausa)",
+        "remind_ok": "⏰ Lembrete agendado para daqui a **{when}**: {msg}",
+        "remind_usage": "Uso: `#remind 10m Mensagem` (aceita `s`, `m`, `h`).",
     },
     "en": {
         "placeholder": "Ask anything, / for AI, # for system...",
@@ -252,6 +255,9 @@ STRINGS = {
         "confirm_danger_btn": "Confirm & Run",
         "action_cancelled": "Action cancelled by user.",
         "danger_blocked": "⚠️ Sensitive action blocked: explicit confirmation required.",
+        "slash_remind": "Schedule reminder (e.g. #remind 10m break)",
+        "remind_ok": "⏰ Reminder scheduled in **{when}**: {msg}",
+        "remind_usage": "Usage: `#remind 10m Message` (supports `s`, `m`, `h`).",
     },
 }
 

@@ -392,6 +392,7 @@ def get_system_commands():
         ("#lang ", t("slash_lang"), "fill:#lang "),
         ("#kb ", t("slash_kb"), "fill:#kb "),
         ("#tz ", t("slash_tz"), "fill:#tz "),
+        ("#remind ", t("slash_remind"), "fill:#remind "),
         ("#settings", t("slash_settings"), "local:settings"),
         ("#update", t("slash_update"), "local:update"),
         ("#lock", t("slash_lock"), "local:lock"),
@@ -2543,6 +2544,29 @@ class SpotlightWindow(Gtk.Window):
             subprocess.Popen(["sudo", "timedatectl", "set-ntp", "true"])
             self.clear_query()
             self.show_reply(t("tz_ok", tz=tz))
+            return
+
+        if prompt.strip().startswith("#remind "):
+            m = re.match(r"^#remind\s+(\d+)\s*([smhSMH]?)\s+(.+)$", prompt.strip())
+            if not m:
+                self.show_reply(t("remind_usage"))
+                return
+            val, unit, msg = int(m.group(1)), (m.group(2) or "m").lower(), m.group(3).strip()
+            mult = {"s": 1, "m": 60, "h": 3600}[unit]
+            req = urllib.request.Request(
+                f"{API_BASE}/api/reminders",
+                data=json.dumps({"delay_seconds": val * mult, "message": msg}).encode(),
+                headers={"Content-Type": "application/json"},
+                method="POST",
+            )
+            def _save_rem():
+                try:
+                    urllib.request.urlopen(req, timeout=3).read()
+                except Exception:
+                    pass
+            threading.Thread(target=_save_rem, daemon=True).start()
+            self.clear_query()
+            self.show_reply(t("remind_ok", when=f"{val}{unit}", msg=msg))
             return
 
         if prompt.strip() in ("/new", "/clear"):

@@ -8,7 +8,9 @@ import select
 import struct
 import subprocess
 import termios
+import threading
 import time
+import uuid
 import datetime
 from pathlib import Path
 from fastapi import FastAPI
@@ -622,5 +624,98 @@ def ask_stream(req: PromptRequest):
 
     return StreamingResponse(_stream(), media_type="application/x-ndjson")
 
+
+REMINDERS_FILE = HOME / ".ai-os" / "reminders.json"
+NOTIF_LOG = HOME / ".ai-os" / "notifications.log"
+_REM_LOCK = threading.Lock()
+
+
+class ReminderRequest(BaseModel):
+    delay_seconds: int = 60
+    message: str
+
+
+def _log_notif(title: str, body: str):
+    try:
+        NOTIF_LOG.parent.mkdir(parents=True, exist_ok=True)
+        ts = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        with NOTIF_LOG.open("a", encoding="utf-8") as nf:
+            nf.write(f"{ts} | {title} | {' '.join(body.split())[:160]}\n")
+    except Exception:
+        pass
+
+
+def _load_reminders() -> list:
+    try:
+        if REMINDERS_FILE.exists():
+            return json.loads(REMINDERS_FILE.read_text(encoding="utf-8"))
+    except Exception:
+        pass
+    return []
+
+
+def _save_reminders(items: list):
+    REMINDERS_FILE.parent.mkdir(parents=True, exist_ok=True)
+    REMINDERS_FILE.write_text(json.dumps(items, indent=2), encoding="utf-8")
+
+
+def _reminder_loop():
+    while True:
+        time.sleep(5)
+        now = time.time()
+        fired = []
+        with _REM_LOCK:
+            items = _load_reminders()
+            kept = []
+            for it in items:
+                if not it.get("done") and now >= float(it.get("fire_at", 0)):
+                    it["done"] = True
+                    fired.append(it)
+                if not it.get("done"):
+                    kept.append(it)
+            if fired:
+                _save_reminders(kept)
+        for it in fired:
+            msg = it.get("message", "Lembrete")
+            _log_notif("AI-OS Lembrete", msg)
+            try:
+                env = os.environ.copy()
+                env.setdefault("DISPLAY", ":0")
+                subprocess.Popen(["notify-send", "AI-OS Lembrete", msg], env=env)
+            except Exception:
+                pass
+
+
+@app.get("/api/reminders")
+def list_reminders():
+    with _REM_LOCK:
+        return _load_reminders()
+
+
+@app.post("/api/reminders")
+def create_reminder(req: ReminderRequest):
+    delay = max(1, min(int(req.delay_seconds), 86400 * 30))
+    item = {
+        "id": uuid.uuid4().hex[:8],
+        "fire_at": time.time() + delay,
+        "message": req.message.strip()[:240],
+        "done": False,
+    }
+    with _REM_LOCK:
+        items = _load_reminders()
+        items.append(item)
+        _save_reminders(items)
+    return {"ok": True, "reminder": item}
+
+
+@app.delete("/api/reminders/{rid}")
+def delete_reminder(rid: str):
+    with _REM_LOCK:
+        items = [it for it in _load_reminders() if it.get("id") != rid]
+        _save_reminders(items)
+    return {"ok": True}
+
+
 if __name__ == "__main__":
+    threading.Thread(target=_reminder_loop, daemon=True).start()
     uvicorn.run(app, host="127.0.0.1", port=8765, log_level="warning")
