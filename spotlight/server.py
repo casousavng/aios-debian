@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import base64
 import fcntl
 import json
 import os
@@ -628,11 +629,19 @@ def ask_stream(req: PromptRequest):
 REMINDERS_FILE = HOME / ".ai-os" / "reminders.json"
 NOTIF_LOG = HOME / ".ai-os" / "notifications.log"
 _REM_LOCK = threading.Lock()
+_TIMERS: dict[str, threading.Timer] = {}
 
 
 class ReminderRequest(BaseModel):
     delay_seconds: int = 60
     message: str
+
+
+class CronRequest(BaseModel):
+    schedule: str
+    kind: str = "notify"  # notify | ask | cmd
+    payload: str
+    label: str = ""
 
 
 def _log_notif(title: str, body: str):
@@ -659,31 +668,48 @@ def _save_reminders(items: list):
     REMINDERS_FILE.write_text(json.dumps(items, indent=2), encoding="utf-8")
 
 
-def _reminder_loop():
-    while True:
-        time.sleep(5)
-        now = time.time()
-        fired = []
-        with _REM_LOCK:
-            items = _load_reminders()
-            kept = []
-            for it in items:
-                if not it.get("done") and now >= float(it.get("fire_at", 0)):
-                    it["done"] = True
-                    fired.append(it)
-                if not it.get("done"):
-                    kept.append(it)
-            if fired:
-                _save_reminders(kept)
-        for it in fired:
-            msg = it.get("message", "Lembrete")
-            _log_notif("AI-OS Lembrete", msg)
-            try:
-                env = os.environ.copy()
-                env.setdefault("DISPLAY", ":0")
-                subprocess.Popen(["notify-send", "AI-OS Lembrete", msg], env=env)
-            except Exception:
-                pass
+def _fire_reminder(rid: str):
+    msg = None
+    with _REM_LOCK:
+        _TIMERS.pop(rid, None)
+        items = _load_reminders()
+        kept = []
+        for it in items:
+            if it.get("id") == rid:
+                msg = it.get("message", "Lembrete")
+            else:
+                kept.append(it)
+        _save_reminders(kept)
+    if msg is not None:
+        _log_notif("AI-OS Lembrete", msg)
+        try:
+            env = os.environ.copy()
+            env.setdefault("DISPLAY", ":0")
+            subprocess.Popen(["notify-send", "AI-OS Lembrete", msg], env=env)
+        except Exception:
+            pass
+
+
+def _schedule_timer(item: dict):
+    rid = item.get("id")
+    if not rid:
+        return
+    delay = max(0.5, float(item.get("fire_at", 0)) - time.time())
+    old = _TIMERS.pop(rid, None)
+    if old:
+        old.cancel()
+    tm = threading.Timer(delay, _fire_reminder, args=(rid,))
+    tm.daemon = True
+    _TIMERS[rid] = tm
+    tm.start()
+
+
+def _schedule_all_reminders():
+    with _REM_LOCK:
+        items = _load_reminders()
+    for it in items:
+        if not it.get("done"):
+            _schedule_timer(it)
 
 
 @app.get("/api/reminders")
@@ -705,14 +731,69 @@ def create_reminder(req: ReminderRequest):
         items = _load_reminders()
         items.append(item)
         _save_reminders(items)
+    _schedule_timer(item)
     return {"ok": True, "reminder": item}
 
 
 @app.delete("/api/reminders/{rid}")
 def delete_reminder(rid: str):
     with _REM_LOCK:
+        tm = _TIMERS.pop(rid, None)
+        if tm:
+            tm.cancel()
         items = [it for it in _load_reminders() if it.get("id") != rid]
         _save_reminders(items)
+    return {"ok": True}
+
+
+def _read_crontab() -> list[str]:
+    proc = subprocess.run(["crontab", "-l"], capture_output=True, text=True)
+    if proc.returncode != 0:
+        return []
+    return proc.stdout.splitlines()
+
+
+def _write_crontab(lines: list[str]):
+    body = ("\n".join(lines).rstrip() + "\n") if lines else ""
+    subprocess.run(["crontab", "-"], input=body, text=True, check=True)
+
+
+@app.get("/api/crons")
+def list_crons():
+    out = []
+    for line in _read_crontab():
+        m = re.match(r"^(\S+\s+\S+\s+\S+\s+\S+\s+\S+)\s+.*?#\s*aios-cron:([a-f0-9]+):(\w+):(.*)$", line.strip())
+        if m:
+            out.append({
+                "id": m.group(2),
+                "schedule": m.group(1),
+                "kind": m.group(3),
+                "label": m.group(4).strip(),
+            })
+    return out
+
+
+@app.post("/api/crons")
+def create_cron(req: CronRequest):
+    sched = " ".join(req.schedule.strip().split())
+    if len(sched.split()) != 5 or any(c in sched for c in ("\n", "\r", ";", "&", "|")):
+        return {"ok": False, "error": "Invalid 5-field cron expression"}
+    kind = req.kind if req.kind in ("notify", "ask", "cmd") else "notify"
+    cid = uuid.uuid4().hex[:8]
+    b64 = base64.b64encode(req.payload.strip().encode("utf-8")).decode("ascii")
+    label = " ".join((req.label or req.payload).split())[:60].replace("\n", " ")
+    entry = f"{sched} /opt/ai-os/spotlight/run_cron.sh {cid} {kind} {b64} # aios-cron:{cid}:{kind}:{label}"
+    lines = [l for l in _read_crontab() if l.strip()]
+    lines.append(entry)
+    _write_crontab(lines)
+    return {"ok": True, "cron": {"id": cid, "schedule": sched, "kind": kind, "label": label}}
+
+
+@app.delete("/api/crons/{cid}")
+def delete_cron(cid: str):
+    tag = f"# aios-cron:{cid}:"
+    lines = [l for l in _read_crontab() if tag not in l]
+    _write_crontab(lines)
     return {"ok": True}
 
 
@@ -734,5 +815,5 @@ def clear_notifications():
 
 
 if __name__ == "__main__":
-    threading.Thread(target=_reminder_loop, daemon=True).start()
+    _schedule_all_reminders()
     uvicorn.run(app, host="127.0.0.1", port=8765, log_level="warning")

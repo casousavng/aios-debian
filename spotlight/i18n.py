@@ -134,6 +134,9 @@ STRINGS = {
         "remind_usage": "Uso: `#remind 10m Mensagem` (aceita `s`, `m`, `h`).",
         "slash_notif": "Histórico de notificações e lembretes",
         "notif_empty": "Sem notificações registadas.",
+        "slash_reminders": "Ver e gerir lembretes e crons ativos",
+        "reminders_empty": "Sem lembretes nem automações cron ativas.",
+        "reminder_deleted": "Agendamento removido.",
     },
     "en": {
         "placeholder": "Ask anything, / for AI, # for system...",
@@ -262,6 +265,9 @@ STRINGS = {
         "remind_usage": "Usage: `#remind 10m Message` (supports `s`, `m`, `h`).",
         "slash_notif": "Notifications & reminders history",
         "notif_empty": "No notifications recorded yet.",
+        "slash_reminders": "View and manage active reminders & crons",
+        "reminders_empty": "No active reminders or cron automations.",
+        "reminder_deleted": "Schedule removed.",
     },
 }
 

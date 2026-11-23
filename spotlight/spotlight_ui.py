@@ -394,6 +394,7 @@ def get_system_commands():
         ("#kb ", t("slash_kb"), "fill:#kb "),
         ("#tz ", t("slash_tz"), "fill:#tz "),
         ("#remind ", t("slash_remind"), "fill:#remind "),
+        ("#reminders", t("slash_reminders"), "local:reminders"),
         ("#settings", t("slash_settings"), "local:settings"),
         ("#update", t("slash_update"), "local:update"),
         ("#lock", t("slash_lock"), "local:lock"),
@@ -2372,6 +2373,49 @@ class SpotlightWindow(Gtk.Window):
             return True
         return False
 
+    def show_reminders_menu(self):
+        matches = []
+        try:
+            with urllib.request.urlopen(f"{API_BASE}/api/reminders", timeout=2) as r:
+                for it in json.loads(r.read().decode()):
+                    matches.append(("del_reminder", f"⏰ {it.get('message', '')}", f"Timer ({it.get('id')}) — Enter/Click to remove", "alarm-symbolic", it.get("id")))
+        except Exception:
+            pass
+        try:
+            with urllib.request.urlopen(f"{API_BASE}/api/crons", timeout=2) as r:
+                for it in json.loads(r.read().decode()):
+                    matches.append(("del_cron", f"🔄 [{it.get('schedule')}] {it.get('label', '')}", f"Cron ({it.get('kind')}) — Enter/Click to remove", "preferences-system-time", it.get("id")))
+        except Exception:
+            pass
+        if not matches:
+            self.hide_results()
+            self.show_reply(t("reminders_empty"))
+            return
+        self.reply_box.hide()
+        self.draft_box.hide()
+        self.results = matches
+        self._last_match_keys = None
+        for child in self.listbox.get_children():
+            self.listbox.remove(child)
+        for _, title, sub, icon_name, _ in matches:
+            row = Gtk.ListBoxRow()
+            hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+            ico = Gtk.Image.new_from_icon_name(icon_name, Gtk.IconSize.LARGE_TOOLBAR)
+            ico.set_pixel_size(20)
+            hbox.pack_start(ico, False, False, 0)
+            box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=1)
+            t_lbl = Gtk.Label(label=title, xalign=0)
+            t_lbl.get_style_context().add_class("row-title")
+            s_lbl = Gtk.Label(label=sub, xalign=0)
+            s_lbl.get_style_context().add_class("row-sub")
+            box.pack_start(t_lbl, False, False, 0)
+            box.pack_start(s_lbl, False, False, 0)
+            hbox.pack_start(box, True, True, 0)
+            row.add(hbox)
+            self.listbox.add(row)
+        self.divider.show()
+        self._show_list_scroll()
+
     def execute_item(self, item):
         kind, _, _, _, payload = item
         if kind == "ai":
@@ -2387,6 +2431,17 @@ class SpotlightWindow(Gtk.Window):
             subprocess.Popen(payload, shell=True)
             self.clear_query()
             self.hide_results()
+        elif kind in ("del_reminder", "del_cron"):
+            ep = "reminders" if kind == "del_reminder" else "crons"
+            def _del():
+                try:
+                    req = urllib.request.Request(f"{API_BASE}/api/{ep}/{payload}", method="DELETE")
+                    urllib.request.urlopen(req, timeout=3).read()
+                except Exception:
+                    pass
+                GLib.idle_add(lambda: (self.hide_results(), self.show_reply(t("reminder_deleted")), False)[2])
+            threading.Thread(target=_del, daemon=True).start()
+            self.clear_query()
         elif kind == "slash":
             if payload == "local:chats":
                 self.clear_query()
@@ -2415,6 +2470,9 @@ class SpotlightWindow(Gtk.Window):
             elif payload == "local:clip":
                 self.clear_query()
                 self.show_clip_history()
+            elif payload == "local:reminders":
+                self.clear_query()
+                self.show_reminders_menu()
             elif payload == "local:lock":
                 self.clear_query()
                 self.hide_results()
@@ -2631,6 +2689,11 @@ class SpotlightWindow(Gtk.Window):
             subprocess.Popen(["sudo", "timedatectl", "set-ntp", "true"])
             self.clear_query()
             self.show_reply(t("tz_ok", tz=tz))
+            return
+
+        if prompt.strip() in ("#remind", "#reminders", "#crons"):
+            self.clear_query()
+            self.show_reminders_menu()
             return
 
         if prompt.strip().startswith("#remind "):

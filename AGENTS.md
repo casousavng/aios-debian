@@ -54,4 +54,6 @@ Quando o utilizador pedir para abrir um site, ler conteúdo web, preencher formu
 - **Contentores & MCPs isolados:** `podman` rootless está pronto para correr servidores MCP ou ferramentas sem sujar o sistema.
 - **GUI fora do browser:** usa `xdotool` (`DISPLAY=:0`) + `scrot` quando precisares de interagir com janelas nativas X11.
 - **PDFs e JSON locais:** usa `pdftotext <ficheiro.pdf> -` e `jq` para leitura rápida.
-- **Lembretes e tarefas agendadas:** usa `cron` (`crontab`) com `DISPLAY=:0 notify-send "AI-OS" "<mensagem>"`.
+- **Lembretes e automações recorrentes:**
+  - Lembretes únicos (zero polling, `threading.Timer`): `POST http://127.0.0.1:8765/api/reminders` (`{"delay_seconds": N, "message": "..."}`), `GET /api/reminders`, `DELETE /api/reminders/{id}`.
+  - Automações recorrentes (`crontab` nativo): `POST http://127.0.0.1:8765/api/crons` (`{"schedule": "0 9 * * *", "kind": "notify|ask|cmd", "payload": "...", "label": "..."}`), `GET /api/crons`, `DELETE /api/crons/{id}`. Usa sempre estes endpoints quando o utilizador pedir lembretes ou automações no chat.
