@@ -1719,8 +1719,9 @@ class SpotlightWindow(Gtk.Window):
             self._chat_btn_lbl.set_text("▼" if self.reply_box.is_visible() else "▲")
             self._chat_btn_lbl.show()
             self.resume_chat_btn.show()
-        else:
+        elif self.resume_chat_btn.is_visible():
             self.resume_chat_btn.hide()
+            self.resize(720, 1)
 
     def _toggle_current_chat(self, *_):
         if self.reply_box.is_visible():
@@ -2055,6 +2056,7 @@ class SpotlightWindow(Gtk.Window):
                 self.draft_view.show()
                 self.draft_box.show()
                 self.divider.show()
+                self.resize(720, 1)
                 adj = self.draft_box.get_vadjustment()
                 GLib.idle_add(lambda: (adj.set_value(adj.get_upper()), False)[1])
             else:
