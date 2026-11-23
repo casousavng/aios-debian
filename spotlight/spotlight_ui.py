@@ -1905,25 +1905,50 @@ class SpotlightWindow(Gtk.Window):
         except Exception:
             pass
 
+    def _scan_files(self, query_lower, bases, limit=6, max_depth=3, time_budget=0.06):
+        import time
+        deadline = time.monotonic() + time_budget
+        skip_dirs = {"node_modules", "__pycache__", "venv", ".venv", "target", "dist", "build"}
+        prefix_hits, sub_hits = [], []
+        seen = set()
+        queue = [(b, 0) for b in bases if b.exists()]
+        while queue and time.monotonic() < deadline and (len(prefix_hits) + len(sub_hits)) < limit * 2:
+            cur, depth = queue.pop(0)
+            try:
+                with os.scandir(cur) as it:
+                    for ent in it:
+                        name = ent.name
+                        if name.startswith(".") or name in skip_dirs:
+                            continue
+                        p_str = ent.path
+                        if p_str in seen:
+                            continue
+                        nl = name.lower()
+                        is_dir = False
+                        try:
+                            is_dir = ent.is_dir(follow_symlinks=False)
+                        except OSError:
+                            pass
+                        if not query_lower or query_lower in nl:
+                            seen.add(p_str)
+                            item = (name, p_str, is_dir)
+                            if query_lower and nl.startswith(query_lower):
+                                prefix_hits.append(item)
+                            else:
+                                sub_hits.append(item)
+                        if is_dir and depth + 1 < max_depth:
+                            queue.append((Path(p_str), depth + 1))
+            except OSError:
+                continue
+        return (prefix_hits + sub_hits)[:limit]
+
     def build_at_matches(self, token):
         q = token.lstrip("@").lower()
-        matches = []
-        for base in [HOME] + SEARCH_DIRS:
-            if not base.exists():
-                continue
-            try:
-                for p in base.iterdir():
-                    if p.name.startswith("."):
-                        continue
-                    rel = str(p).replace(str(HOME) + "/", "")
-                    if not q or q in rel.lower():
-                        icon_name = "folder" if p.is_dir() else "text-x-generic"
-                        matches.append(("mention", f"@{rel}", t("attach_agy"), icon_name, f"@{rel} "))
-                    if len(matches) >= 7:
-                        return matches
-            except OSError:
-                pass
-        return matches
+        hits = self._scan_files(q, SEARCH_DIRS + [HOME], limit=7, max_depth=3)
+        return [
+            ("mention", f"@{p.replace(str(HOME) + '/', '')}", t("attach_agy"), "folder" if is_dir else "text-x-generic", f"@{p.replace(str(HOME) + '/', '')} ")
+            for _, p, is_dir in hits
+        ]
 
     def build_matches(self, query):
         q_raw = query.lower()
@@ -2011,24 +2036,10 @@ class SpotlightWindow(Gtk.Window):
             if q in name.lower():
                 matches.append(("app", name, t("open_app", cmd=cmd.split()[0]), icon_name, cmd))
 
-        # 3. Files in user folders
-        count = 0
-        for base in SEARCH_DIRS:
-            try:
-                if not base.exists():
-                    continue
-                entries = list(base.iterdir())
-            except OSError:
-                continue
-            for p in entries:
-                if q in p.name.lower():
-                    icon_name = "folder" if p.is_dir() else "text-x-generic"
-                    matches.append(("file", p.name, str(p).replace(str(HOME), "~"), icon_name, str(p)))
-                    count += 1
-                    if count >= 6:
-                        break
-            if count >= 6:
-                break
+        # 3. Recursive files in user folders (BFS up to depth 3, 60ms budget)
+        for name, p_str, is_dir in self._scan_files(q, SEARCH_DIRS, limit=6, max_depth=3):
+            icon_name = "folder" if is_dir else "text-x-generic"
+            matches.append(("file", name, p_str.replace(str(HOME), "~"), icon_name, p_str))
 
         return matches[:7]
 
