@@ -115,6 +115,26 @@ button.win-dot-active {
     border-radius: 14px;
     padding: 12px 14px;
 }
+.seg-bar {
+    background-color: rgba(255, 255, 255, 0.06);
+    border-radius: 9px;
+    padding: 2px;
+}
+.seg-btn {
+    background-image: none;
+    background-color: transparent;
+    border: none;
+    box-shadow: none;
+    border-radius: 7px;
+    color: #94a3b8;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 4px 8px;
+}
+.seg-btn-active {
+    background-color: rgba(103, 232, 249, 0.16);
+    color: #67e8f9;
+}
 .pop-title {
     color: #f8fafc;
     font-size: 12px;
@@ -560,17 +580,31 @@ class RemindersPopover(Gtk.Window):
             self.set_visual(visual)
         self.connect("draw", clear_transparent)
 
-        self.card = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        self.card = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
         self.card.get_style_context().add_class("popover-card")
         self.card.set_size_request(330, -1)
         self.add(self.card)
 
-        self.nb = Gtk.Notebook()
-        self.card.pack_start(self.nb, True, True, 0)
+        seg = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=3)
+        seg.set_homogeneous(True)
+        seg.get_style_context().add_class("seg-bar")
+        self.tab_notif_btn = Gtk.Button(label=t("bell_tab_notif"))
+        self.tab_notif_btn.set_can_focus(False)
+        self.tab_notif_btn.get_style_context().add_class("seg-btn")
+        self.tab_notif_btn.get_style_context().add_class("seg-btn-active")
+        self.tab_auto_btn = Gtk.Button(label=t("bell_tab_auto"))
+        self.tab_auto_btn.set_can_focus(False)
+        self.tab_auto_btn.get_style_context().add_class("seg-btn")
+        seg.pack_start(self.tab_notif_btn, True, True, 0)
+        seg.pack_start(self.tab_auto_btn, True, True, 0)
+        self.card.pack_start(seg, False, False, 0)
+
+        self.stack = Gtk.Stack()
+        self.stack.set_vhomogeneous(False)
+        self.card.pack_start(self.stack, True, True, 0)
 
         # Tab 1: Notificações
         tab_notif = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
-        tab_notif.set_border_width(8)
         nhdr_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
         self.notif_hdr = Gtk.Label(label=t("bell_notif_hdr"), xalign=0)
         self.notif_hdr.get_style_context().add_class("pop-title")
@@ -582,25 +616,35 @@ class RemindersPopover(Gtk.Window):
         tab_notif.pack_start(nhdr_row, False, False, 0)
         self.notif_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
         tab_notif.pack_start(self.notif_box, False, False, 0)
-        self.tab_notif_lbl = Gtk.Label(label=t("bell_tab_notif"))
-        self.nb.append_page(tab_notif, self.tab_notif_lbl)
+        self.stack.add_named(tab_notif, "notif")
 
         # Tab 2: Automações (Lembretes & Crons)
         tab_auto = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
-        tab_auto.set_border_width(8)
         self.sched_hdr = Gtk.Label(label=t("bell_sched_hdr"), xalign=0)
         self.sched_hdr.get_style_context().add_class("pop-title")
         tab_auto.pack_start(self.sched_hdr, False, False, 0)
         self.sched_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
         tab_auto.pack_start(self.sched_box, False, False, 0)
-        self.tab_auto_lbl = Gtk.Label(label=t("bell_tab_auto"))
-        self.nb.append_page(tab_auto, self.tab_auto_lbl)
+        self.stack.add_named(tab_auto, "auto")
+
+        self.tab_notif_btn.connect("clicked", lambda *_: self._switch_tab("notif"))
+        self.tab_auto_btn.connect("clicked", lambda *_: self._switch_tab("auto"))
+
+    def _switch_tab(self, name):
+        self.stack.set_visible_child_name(name)
+        for btn, key in [(self.tab_notif_btn, "notif"), (self.tab_auto_btn, "auto")]:
+            ctx = btn.get_style_context()
+            if key == name:
+                ctx.add_class("seg-btn-active")
+            else:
+                ctx.remove_class("seg-btn-active")
+        self.resize(330, 1)
 
     def refresh_labels(self):
         self.sched_hdr.set_text(t("bell_sched_hdr"))
         self.notif_hdr.set_text(t("bell_notif_hdr"))
-        self.tab_notif_lbl.set_text(t("bell_tab_notif"))
-        self.tab_auto_lbl.set_text(t("bell_tab_auto"))
+        self.tab_notif_btn.set_label(t("bell_tab_notif"))
+        self.tab_auto_btn.set_label(t("bell_tab_auto"))
         self.clear_btn.set_label(t("bell_clear"))
 
     def toggle_at(self, geom):
