@@ -144,7 +144,7 @@ button.status-trigger:hover, button.status-trigger:active {
     background-color: rgba(16, 21, 29, 0.94);
     border: 1px solid rgba(255, 255, 255, 0.30);
     border-radius: 22px;
-    padding: 8px 16px;
+    padding: 7px 16px;
 }
 .draft-letter,
 textview.draft-letter,
@@ -161,7 +161,7 @@ textview.draft-letter text {
     padding: 6px 10px;
 }
 .search-row {
-    padding: 4px 4px;
+    padding: 2px 4px;
 }
 scrollbar.mini-scroll, scrollbar.mini-scroll trough {
     background: transparent;
@@ -1376,6 +1376,7 @@ class SpotlightWindow(Gtk.Window):
 
         icon_btn = Gtk.Button(label="✦")
         icon_btn.set_valign(Gtk.Align.CENTER)
+        icon_btn.set_margin_top(2)
         icon_btn.set_can_focus(False)
         icon_btn.set_relief(Gtk.ReliefStyle.NONE)
         icon_btn.get_style_context().add_class("search-icon")
@@ -1418,6 +1419,7 @@ class SpotlightWindow(Gtk.Window):
         overlay.add(self.entry_scroll)
         self.placeholder_lbl = Gtk.Label(label=t("placeholder"), xalign=0)
         self.placeholder_lbl.set_valign(Gtk.Align.CENTER)
+        self.placeholder_lbl.set_margin_top(2)
         self.placeholder_lbl.get_style_context().add_class("search-placeholder")
         self.placeholder_lbl.set_no_show_all(True)
         self.placeholder_lbl.show()
