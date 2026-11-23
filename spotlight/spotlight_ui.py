@@ -41,6 +41,15 @@ REPLY_HTML = """<!DOCTYPE html>
   table { border-collapse: collapse; width: 100%; margin: 0.4em 0; font-size: 12px; }
   th, td { border: 1px solid rgba(255,255,255,0.14); padding: 4px 8px; text-align: left; }
   th { background: rgba(255,255,255,0.08); color: #ffffff; }
+  a { color: #67e8f9; text-decoration: none; }
+  .msg-row { display: flex; width: 100%; margin: 6px 0; }
+  .msg-user { justify-content: flex-end; }
+  .msg-ai { justify-content: flex-start; }
+  .bubble { max-width: 86%; padding: 8px 12px; border-radius: 14px; }
+  .bubble-user { background: rgba(103, 232, 249, 0.16); border: 1px solid rgba(103, 232, 249, 0.36); color: #f8fafc; border-bottom-right-radius: 4px; }
+  .bubble-ai { background: rgba(255, 255, 255, 0.06); border: 1px solid rgba(255, 255, 255, 0.12); color: #e2e8f0; border-bottom-left-radius: 4px; }
+  .bubble p:first-child { margin-top: 0; }
+  .bubble p:last-child { margin-bottom: 0; }
 </style></head><body>%BODY%</body></html>"""
 
 API_BASE = "http://127.0.0.1:8765"
@@ -128,7 +137,7 @@ button.status-trigger:hover, button.status-trigger:active {
 }
 .spotlight-card {
     background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.16) 0%, rgba(20, 26, 34, 0.08) 100%);
-    background-color: rgba(20, 26, 34, 0.90);
+    background-color: rgba(16, 21, 29, 0.94);
     border: 1px solid rgba(255, 255, 255, 0.30);
     border-radius: 22px;
     padding: 8px 16px;
@@ -200,10 +209,23 @@ button.send-arrow {
     border: 1px solid rgba(255, 255, 255, 0.22);
     box-shadow: none;
     color: #ffffff;
-    font-size: 16px;
-    padding: 2px 10px;
+    font-size: 15px;
+    padding: 0 10px;
+    min-height: 28px;
     border-radius: 10px;
 }
+button.chat-pill {
+    background: rgba(103, 232, 249, 0.14);
+    border: 1px solid rgba(103, 232, 249, 0.34);
+    box-shadow: none;
+    color: #67e8f9;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 0 10px;
+    min-height: 28px;
+    border-radius: 10px;
+}
+button.chat-pill:hover,
 button.send-arrow:hover {
     background-color: rgba(103, 232, 249, 0.28);
     color: #ffffff;
@@ -1094,8 +1116,13 @@ class SpotlightWindow(Gtk.Window):
         self.litemd_btn.get_style_context().add_class("reply-btn")
         self.litemd_btn.set_can_focus(False)
         self.litemd_btn.connect("clicked", self.on_open_litemd)
+        self.new_chat_btn = Gtk.Button(label="/new")
+        self.new_chat_btn.get_style_context().add_class("reply-btn")
+        self.new_chat_btn.set_can_focus(False)
+        self.new_chat_btn.connect("clicked", lambda *_: (setattr(self, "current_chat_id", None), self.hide_results(), self.show_reply(t("new_chat"))))
         actions_row.pack_end(self.litemd_btn, False, False, 0)
         actions_row.pack_end(self.copy_btn, False, False, 0)
+        actions_row.pack_end(self.new_chat_btn, False, False, 0)
         self.reply_box.pack_start(actions_row, False, False, 0)
 
         self.reply_view = None
@@ -1198,11 +1225,14 @@ class SpotlightWindow(Gtk.Window):
         vadj.connect("changed", lambda a: self.mini_scroll.set_visible(a.get_upper() > a.get_page_size() + 2))
         top_row.pack_start(self.mini_scroll, False, False, 0)
 
-        self.status_lbl = Gtk.Label(label="⌘ Space")
-        self.status_lbl.set_valign(Gtk.Align.END)
-        self.status_lbl.set_margin_bottom(3)
-        self.status_lbl.get_style_context().add_class("keycap-badge")
-        top_row.pack_start(self.status_lbl, False, False, 0)
+        self.resume_chat_btn = Gtk.Button(label="Chat")
+        self.resume_chat_btn.set_valign(Gtk.Align.END)
+        self.resume_chat_btn.set_size_request(-1, 28)
+        self.resume_chat_btn.get_style_context().add_class("chat-pill")
+        self.resume_chat_btn.set_can_focus(False)
+        self.resume_chat_btn.set_no_show_all(True)
+        self.resume_chat_btn.connect("clicked", self._toggle_current_chat)
+        top_row.pack_end(self.resume_chat_btn, False, False, 0)
 
         self.send_btn = Gtk.Button(label="→")
         self.send_btn.set_valign(Gtk.Align.END)
@@ -1335,25 +1365,37 @@ class SpotlightWindow(Gtk.Window):
         if resp == Gtk.ResponseType.OK:
             self.start_agy_login()
 
+    def _sync_chat_btn(self):
+        self.resume_chat_btn.set_visible(bool(self.current_chat_id) and not self.reply_box.is_visible())
+
+    def _toggle_current_chat(self, *_):
+        if self.reply_box.is_visible():
+            self.hide_results()
+        elif self.current_chat_id:
+            self.show_reply(self.last_reply_md or "")
+        self._sync_chat_btn()
+
     def hide_results(self):
         self.divider.hide()
         self.list_scroll.hide()
         self.draft_box.hide()
         self.reply_box.hide()
+        self._sync_chat_btn()
         self.resize(720, 1)
 
     def on_reply_loaded(self, view, event):
         if event != WebKit2.LoadEvent.FINISHED:
             return
         view.evaluate_javascript(
-            "document.body.scrollHeight", -1, None, None, None, self._on_reply_height, None
+            "window.scrollTo(0, document.body.scrollHeight); document.body.scrollHeight",
+            -1, None, None, None, self._on_reply_height, None
         )
 
     def _on_reply_height(self, view, res, _):
         try:
             js_res = view.evaluate_javascript_finish(res)
             h = int(js_res.to_int32())
-            view.set_size_request(-1, max(36, min(h + 8, 320)))
+            view.set_size_request(-1, max(36, min(h + 8, 460)))
         except Exception:
             view.set_size_request(-1, 140)
 
@@ -1383,6 +1425,11 @@ class SpotlightWindow(Gtk.Window):
             Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD).set_text(self.last_reply_md, -1)
 
     def on_open_litemd(self, *_):
+        if self.current_chat_id:
+            chat_path = HOME / ".ai-os" / "chats" / f"{self.current_chat_id}.md"
+            if chat_path.exists():
+                subprocess.Popen(["litemd", str(chat_path)])
+                return
         if not self.last_reply_md:
             return
         out = HOME / "Temp" / "ultima-resposta.md"
@@ -1406,16 +1453,44 @@ class SpotlightWindow(Gtk.Window):
         self.reply_view.set_size_request(-1, 48)
         self.reply_box.pack_start(self.reply_view, True, True, 0)
 
-    def show_reply(self, text):
+    def show_reply(self, text, live_stream=False):
         self._ensure_reply_view()
         self.last_reply_md = text
         self.divider.show()
         self.list_scroll.hide()
-        body = markdown.markdown(
-            text, extensions=["fenced_code", "tables", "sane_lists", "nl2br"]
-        )
+        render_md = text
+        if self.current_chat_id:
+            chat_path = HOME / ".ai-os" / "chats" / f"{self.current_chat_id}.md"
+            if chat_path.exists():
+                hist_md = chat_path.read_text(encoding="utf-8", errors="ignore").strip()
+                if live_stream:
+                    pending = getattr(self, "_pending_prompt", "")
+                    if pending and f"### Utilizador\n{pending}" not in hist_md.splitlines()[-3:]:
+                        hist_md = hist_md + f"\n\n### Utilizador\n{pending}"
+                    render_md = hist_md + f"\n\n### AI-OS\n{text}"
+                elif hist_md:
+                    render_md = hist_md
+        elif live_stream and getattr(self, "_pending_prompt", ""):
+            render_md = f"### Utilizador\n{self._pending_prompt}\n\n### AI-OS\n{text}"
+        if "### Utilizador" in render_md or "### AI-OS" in render_md:
+            parts = re.split(r"(?m)^### (Utilizador|AI-OS)\s*$", render_md)
+            chunks = []
+            i = 1
+            while i + 1 < len(parts):
+                role = "user" if parts[i] == "Utilizador" else "ai"
+                content = parts[i + 1].strip()
+                if content:
+                    html_part = markdown.markdown(content, extensions=["fenced_code", "tables", "sane_lists", "nl2br"])
+                    chunks.append(f'<div class="msg-row msg-{role}"><div class="bubble bubble-{role}">{html_part}</div></div>')
+                i += 2
+            body = "\n".join(chunks)
+        else:
+            body = markdown.markdown(
+                render_md, extensions=["fenced_code", "tables", "sane_lists", "nl2br"]
+            )
         self.reply_view.load_html(REPLY_HTML.replace("%BODY%", body), "file:///")
         self.reply_box.show_all()
+        self._sync_chat_btn()
 
     def refresh_status(self):
         def _fetch():
@@ -1423,7 +1498,6 @@ class SpotlightWindow(Gtk.Window):
                 with urllib.request.urlopen(f"{API_BASE}/api/status", timeout=2) as r:
                     data = json.loads(r.read().decode())
                 txt = f"{data.get('wifi', 'N/D')} · {data.get('battery', 'AC')} · {data.get('time', '--:--')}"
-                GLib.idle_add(self.status_lbl.set_tooltip_text, txt)
                 if self.topbar:
                     GLib.idle_add(self.topbar.update_status, data)
             except Exception:
@@ -1992,10 +2066,13 @@ class SpotlightWindow(Gtk.Window):
             self.show_reply(t("lang_changed"))
             return
 
+        if prompt.strip() in ("/new", "/clear"):
+            self.current_chat_id = None
+        self._pending_prompt = prompt
         self._cancelled = False
         self._save_history(prompt)
         self.clear_query()
-        self.show_reply(t("processing"))
+        self.show_reply(t("processing"), live_stream=True)
         self._set_busy(True)
 
         def _worker():
@@ -2020,13 +2097,13 @@ class SpotlightWindow(Gtk.Window):
                             self.current_chat_id = ev.get("chat_id")
                             final_reply = ev.get("reply", "Concluído.")
                         elif ev.get("status") and not acc:
-                            GLib.idle_add(self.show_reply, f"⚙ {t('step_tool', tool=ev['status'])}")
+                            GLib.idle_add(self.show_reply, f"⚙ {t('step_tool', tool=ev['status'])}", True)
                         elif ev.get("delta"):
                             acc.append(ev["delta"])
                             now = time.monotonic()
                             if now - last_render > 0.18:
                                 last_render = now
-                                GLib.idle_add(self.show_reply, "".join(acc))
+                                GLib.idle_add(self.show_reply, "".join(acc), True)
                 reply = final_reply or "".join(acc) or "Concluído."
             except Exception as e:
                 reply = f"Erro ao contactar backend AI-OS: {e}"
