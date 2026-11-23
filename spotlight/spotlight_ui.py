@@ -638,6 +638,7 @@ class ControlPopover(Gtk.Window):
         self.connect("leave-notify-event", self._on_leave)
 
     def _open_tz_dialog(self, *_):
+        import datetime
         self.hide()
         dlg = Gtk.Dialog(title=t("tz_title"), flags=0)
         dlg.set_position(Gtk.WindowPosition.CENTER_ALWAYS)
@@ -645,11 +646,15 @@ class ControlPopover(Gtk.Window):
         box = dlg.get_content_area()
         box.set_spacing(8)
         box.set_border_width(12)
-        entry = Gtk.Entry()
+
         try:
             cur_tz = subprocess.check_output(["timedatectl", "show", "-p", "Timezone", "--value"], text=True).strip()
+            ntp_on = subprocess.check_output(["timedatectl", "show", "-p", "NTP", "--value"], text=True).strip() == "yes"
         except Exception:
-            cur_tz = "Europe/Lisbon"
+            cur_tz, ntp_on = "Europe/Lisbon", True
+
+        box.add(Gtk.Label(label=t("tz_zone_lbl"), xalign=0))
+        entry = Gtk.Entry()
         entry.set_text(cur_tz)
         box.add(entry)
         row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=4)
@@ -658,14 +663,34 @@ class ControlPopover(Gtk.Window):
             b.connect("clicked", lambda _, z=tz: entry.set_text(z))
             row.pack_start(b, True, True, 0)
         box.add(row)
+
+        ntp_chk = Gtk.CheckButton(label=t("tz_ntp"))
+        ntp_chk.set_active(ntp_on)
+        box.add(ntp_chk)
+
+        box.add(Gtk.Label(label=t("tz_dt_lbl"), xalign=0))
+        dt_entry = Gtk.Entry()
+        orig_dt = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
+        dt_entry.set_text(orig_dt)
+        dt_entry.connect("changed", lambda *_: ntp_chk.set_active(False))
+        box.add(dt_entry)
+
         dlg.add_buttons(t("cancel"), Gtk.ResponseType.CANCEL, t("confirm"), Gtk.ResponseType.OK)
         dlg.show_all()
         resp = dlg.run()
-        chosen = entry.get_text().strip()
+        chosen_tz = entry.get_text().strip()
+        chosen_dt = dt_entry.get_text().strip()
+        use_ntp = ntp_chk.get_active()
         dlg.destroy()
-        if resp == Gtk.ResponseType.OK and chosen:
-            subprocess.Popen(["sudo", "timedatectl", "set-timezone", chosen])
-            subprocess.Popen(["sudo", "timedatectl", "set-ntp", "true"])
+        if resp == Gtk.ResponseType.OK:
+            if chosen_tz:
+                subprocess.run(["sudo", "timedatectl", "set-timezone", chosen_tz], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            if use_ntp:
+                subprocess.Popen(["sudo", "timedatectl", "set-ntp", "true"])
+            elif chosen_dt:
+                subprocess.run(["sudo", "timedatectl", "set-ntp", "false"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                dt_full = chosen_dt if len(chosen_dt) > 16 else f"{chosen_dt}:00"
+                subprocess.Popen(["sudo", "timedatectl", "set-time", dt_full])
 
     def _on_enter(self, *_):
         self._hovering = True
