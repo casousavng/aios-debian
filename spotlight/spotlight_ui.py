@@ -907,25 +907,30 @@ def open_settings_dialog(spotlight):
     dlg = Gtk.Dialog(title=t("settings_title"), flags=0)
     dlg.set_position(Gtk.WindowPosition.CENTER_ALWAYS)
     dlg.set_keep_above(True)
-    dlg.set_default_size(460, -1)
+    dlg.set_default_size(480, 300)
     box = dlg.get_content_area()
-    box.set_spacing(12)
-    box.set_border_width(16)
+    box.set_border_width(12)
 
-    # 1. AI Agent Section
-    box.add(Gtk.Label(label=f"<b>{t('settings_ai')}</b>", use_markup=True, xalign=0))
-    cur_model = ""
+    nb = Gtk.Notebook()
+    box.pack_start(nb, True, True, 0)
+
+    # Tab 1: AI Agent
+    tab_ai = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
+    tab_ai.set_border_width(14)
+    cur_model, cur_mode = "", "auto"
     try:
         s_file = HOME / ".gemini" / "antigravity-cli" / "settings.json"
         if s_file.exists():
-            cur_model = json.loads(s_file.read_text(encoding="utf-8")).get("model", "")
+            sd = json.loads(s_file.read_text(encoding="utf-8"))
+            cur_model = sd.get("model", "")
+            cur_mode = sd.get("agentMode", "auto")
     except Exception:
         pass
-    model_lbl = Gtk.Label(label=cur_model or "agy", xalign=0)
+    model_lbl = Gtk.Label(label=f"{cur_model or 'agy'} ({cur_mode})", xalign=0)
     model_lbl.get_style_context().add_class("pop-sub")
-    box.add(model_lbl)
+    tab_ai.pack_start(model_lbl, False, False, 0)
 
-    prof_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+    prof_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
     for key in ("fast", "deep", "plan"):
         b = Gtk.Button(label=t(f"prof_{key}")[0])
         def _set_prof(_, k=key):
@@ -944,13 +949,24 @@ def open_settings_dialog(spotlight):
             threading.Thread(target=_w, daemon=True).start()
         b.connect("clicked", _set_prof)
         prof_row.pack_start(b, True, True, 0)
-    box.add(prof_row)
+    tab_ai.pack_start(prof_row, False, False, 0)
 
-    # 2. Appearance & Chat Section
-    box.add(Gtk.Label(label=f"<b>{t('settings_ui')}</b>", use_markup=True, xalign=0))
+    auth_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+    login_b = Gtk.Button(label="/login")
+    login_b.connect("clicked", lambda *_: (dlg.destroy(), spotlight.start_agy_login()))
+    logout_b = Gtk.Button(label="/logout")
+    logout_b.connect("clicked", lambda *_: (dlg.destroy(), spotlight.do_agy_logout()))
+    auth_row.pack_start(login_b, True, True, 0)
+    auth_row.pack_start(logout_b, True, True, 0)
+    tab_ai.pack_start(auth_row, False, False, 0)
+    nb.append_page(tab_ai, Gtk.Label(label=t("settings_ai")))
+
+    # Tab 2: Chat & Language
+    tab_ui = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
+    tab_ui.set_border_width(14)
     cur_fs = int(get_config().get("chat_font_size", 13))
     fs_lbl = Gtk.Label(label=f"Texto do Chat: {cur_fs}px" if get_lang() == "pt" else f"Chat Text: {cur_fs}px", xalign=0)
-    box.add(fs_lbl)
+    tab_ui.pack_start(fs_lbl, False, False, 0)
     fs_scale = Gtk.Scale.new_with_range(Gtk.Orientation.HORIZONTAL, 11, 18, 1)
     fs_scale.set_value(cur_fs)
     fs_scale.set_draw_value(False)
@@ -964,9 +980,9 @@ def open_settings_dialog(spotlight):
                 -1, None, None, None, spotlight._on_reply_height, None,
             )
     fs_scale.connect("value-changed", _on_fs)
-    box.add(fs_scale)
+    tab_ui.pack_start(fs_scale, False, False, 0)
 
-    lang_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+    lang_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
     for code, name in (("pt", "Português (PT-PT)"), ("en", "English (EN)")):
         lb = Gtk.Button(label=name)
         def _set_l(_, c=code):
@@ -978,31 +994,37 @@ def open_settings_dialog(spotlight):
             spotlight.apply_lang()
         lb.connect("clicked", _set_l)
         lang_row.pack_start(lb, True, True, 0)
-    box.add(lang_row)
+    tab_ui.pack_start(lang_row, False, False, 0)
 
     kb_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
     for code in ("pt", "us", "es", "fr", "gb"):
         kb_b = Gtk.Button(label=f"KB: {code.upper()}")
         kb_b.connect("clicked", lambda _, c=code: (subprocess.Popen(["setxkbmap", c]), update_config(kb_layout=c)))
         kb_row.pack_start(kb_b, True, True, 0)
-    box.add(kb_row)
+    tab_ui.pack_start(kb_row, False, False, 0)
+    nb.append_page(tab_ui, Gtk.Label(label=t("settings_ui_tab")))
 
-    # 3. System Section
-    box.add(Gtk.Label(label=f"<b>{t('settings_sys')}</b>", use_markup=True, xalign=0))
-    sys_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+    # Tab 3: System
+    tab_sys = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
+    tab_sys.set_border_width(14)
+    grid = Gtk.Grid(column_spacing=8, row_spacing=8, column_homogeneous=True)
     if spotlight.topbar:
         tz_b = Gtk.Button(label=t("tz_btn"))
         tz_b.connect("clicked", lambda *_: (dlg.destroy(), GLib.idle_add(spotlight.topbar.popover._show_tz_dialog)))
-        sys_row.pack_start(tz_b, True, True, 0)
+        grid.attach(tz_b, 0, 0, 1, 1)
     disp_b = Gtk.Button(label=t("displays_short"))
     disp_b.connect("clicked", lambda *_: subprocess.Popen(["xrandr", "--auto"]))
-    sys_row.pack_start(disp_b, True, True, 0)
+    grid.attach(disp_b, 1, 0, 1, 1)
     upd_b = Gtk.Button(label="#update")
     upd_b.connect("clicked", lambda *_: (dlg.destroy(), subprocess.Popen(["/opt/ai-os/spotlight/update.sh"])))
-    sys_row.pack_start(upd_b, True, True, 0)
-    box.add(sys_row)
+    grid.attach(upd_b, 0, 1, 1, 1)
+    lock_b = Gtk.Button(label=t("lock_short"))
+    lock_b.connect("clicked", lambda *_: (dlg.destroy(), subprocess.Popen(["/opt/ai-os/spotlight/lock.sh"])))
+    grid.attach(lock_b, 1, 1, 1, 1)
+    tab_sys.pack_start(grid, False, False, 0)
+    nb.append_page(tab_sys, Gtk.Label(label=t("settings_sys")))
 
-    dlg.add_buttons(t("confirm"), Gtk.ResponseType.OK)
+    dlg.add_buttons(t("close_btn"), Gtk.ResponseType.CLOSE)
     dlg.connect("response", lambda d, *_: d.destroy())
     dlg.connect("delete-event", lambda d, *_: (d.destroy(), True)[1])
     dlg.show_all()
