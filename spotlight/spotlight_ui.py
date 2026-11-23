@@ -773,12 +773,19 @@ class RemindersPopover(Gtk.Window):
             self.hide()
         return False
 
-    def show_at(self, geom):
+    def _place_top_right(self, min_w=330):
+        display = Gdk.Display.get_default()
+        mon = display.get_primary_monitor() or display.get_monitor(0)
+        geom = mon.get_geometry()
+        pw = max(self.get_size()[0], self.get_preferred_width()[1], min_w)
+        self.move(geom.x + geom.width - pw - 10, geom.y + 34)
+
+    def show_at(self, _geom):
         if self.is_visible():
             return
         self.refresh_labels()
-        self.move(geom.x + geom.width - 344, geom.y + 34)
         self.show_all()
+        self._place_top_right(330)
         self._load_async()
 
     def _switch_tab(self, name):
@@ -790,6 +797,7 @@ class RemindersPopover(Gtk.Window):
             else:
                 ctx.remove_class("seg-btn-active")
         self.resize(330, 1)
+        self._place_top_right(330)
 
     def refresh_labels(self):
         self.sched_hdr.set_text(t("bell_sched_hdr"))
@@ -1130,6 +1138,13 @@ class ControlPopover(Gtk.Window):
             self.hide()
         return False
 
+    def _place_top_right(self, min_w=310):
+        display = Gdk.Display.get_default()
+        mon = display.get_primary_monitor() or display.get_monitor(0)
+        geom = mon.get_geometry()
+        pw = max(self.get_size()[0], self.get_preferred_width()[1], min_w)
+        self.move(geom.x + geom.width - pw - 10, geom.y + 34)
+
     def _switch_tab(self, name):
         self.stack.set_visible_child_name(name)
         for btn, key in [(self.tab_audio_btn, "audio"), (self.tab_conn_btn, "conn"), (self.tab_sys_btn, "sys")]:
@@ -1139,6 +1154,7 @@ class ControlPopover(Gtk.Window):
             else:
                 ctx.remove_class("seg-btn-active")
         self.resize(310, 1)
+        self._place_top_right(310)
 
     def refresh_labels(self):
         self.tz_btn.set_label(t("tz_btn"))
@@ -1247,15 +1263,15 @@ class ControlPopover(Gtk.Window):
             except Exception:
                 pass
 
-    def show_at(self, geom):
+    def show_at(self, _geom):
         if self.is_visible():
             return
         import datetime
         self.dt_lbl.set_text(datetime.datetime.now().strftime("%a %d %b · %H:%M"))
         kb = get_config().get("kb_layout", "pt").upper()
         self.info_lbl.set_text(f"{t('podman_ready')} · KB: {kb}")
-        self.move(geom.x + geom.width - 324, geom.y + 34)
         self.show_all()
+        self._place_top_right(310)
         threading.Thread(target=self._populate_async, daemon=True).start()
 
     def toggle_at(self, geom):
