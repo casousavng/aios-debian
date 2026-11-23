@@ -140,6 +140,8 @@ STRINGS = {
         "bell_tip": "Lembretes, crons e notificações",
         "bell_sched_hdr": "Lembretes & Crons",
         "bell_notif_hdr": "Notificações recentes",
+        "bell_tab_notif": "Notificações",
+        "bell_tab_auto": "Automações",
         "bell_clear": "Limpar",
     },
     "en": {
@@ -275,6 +277,8 @@ STRINGS = {
         "bell_tip": "Reminders, crons & notifications",
         "bell_sched_hdr": "Reminders & Crons",
         "bell_notif_hdr": "Recent notifications",
+        "bell_tab_notif": "Notifications",
+        "bell_tab_auto": "Automations",
         "bell_clear": "Clear",
     },
 }

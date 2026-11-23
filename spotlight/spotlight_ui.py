@@ -562,20 +562,15 @@ class RemindersPopover(Gtk.Window):
 
         self.card = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
         self.card.get_style_context().add_class("popover-card")
-        self.card.set_size_request(310, -1)
+        self.card.set_size_request(330, -1)
         self.add(self.card)
 
-        self.sched_hdr = Gtk.Label(label=t("bell_sched_hdr"), xalign=0)
-        self.sched_hdr.get_style_context().add_class("pop-title")
-        self.card.pack_start(self.sched_hdr, False, False, 0)
+        self.nb = Gtk.Notebook()
+        self.card.pack_start(self.nb, True, True, 0)
 
-        self.sched_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
-        self.card.pack_start(self.sched_box, False, False, 0)
-
-        div = Gtk.Box()
-        div.get_style_context().add_class("divider")
-        self.card.pack_start(div, False, False, 0)
-
+        # Tab 1: Notificações
+        tab_notif = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        tab_notif.set_border_width(8)
         nhdr_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
         self.notif_hdr = Gtk.Label(label=t("bell_notif_hdr"), xalign=0)
         self.notif_hdr.get_style_context().add_class("pop-title")
@@ -584,14 +579,28 @@ class RemindersPopover(Gtk.Window):
         self.clear_btn.connect("clicked", self._clear_notifs)
         nhdr_row.pack_start(self.notif_hdr, True, True, 0)
         nhdr_row.pack_end(self.clear_btn, False, False, 0)
-        self.card.pack_start(nhdr_row, False, False, 0)
+        tab_notif.pack_start(nhdr_row, False, False, 0)
+        self.notif_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
+        tab_notif.pack_start(self.notif_box, False, False, 0)
+        self.tab_notif_lbl = Gtk.Label(label=t("bell_tab_notif"))
+        self.nb.append_page(tab_notif, self.tab_notif_lbl)
 
-        self.notif_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=3)
-        self.card.pack_start(self.notif_box, False, False, 0)
+        # Tab 2: Automações (Lembretes & Crons)
+        tab_auto = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        tab_auto.set_border_width(8)
+        self.sched_hdr = Gtk.Label(label=t("bell_sched_hdr"), xalign=0)
+        self.sched_hdr.get_style_context().add_class("pop-title")
+        tab_auto.pack_start(self.sched_hdr, False, False, 0)
+        self.sched_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
+        tab_auto.pack_start(self.sched_box, False, False, 0)
+        self.tab_auto_lbl = Gtk.Label(label=t("bell_tab_auto"))
+        self.nb.append_page(tab_auto, self.tab_auto_lbl)
 
     def refresh_labels(self):
         self.sched_hdr.set_text(t("bell_sched_hdr"))
         self.notif_hdr.set_text(t("bell_notif_hdr"))
+        self.tab_notif_lbl.set_text(t("bell_tab_notif"))
+        self.tab_auto_lbl.set_text(t("bell_tab_auto"))
         self.clear_btn.set_label(t("bell_clear"))
 
     def toggle_at(self, geom):
@@ -599,7 +608,7 @@ class RemindersPopover(Gtk.Window):
             self.hide()
             return
         self.refresh_labels()
-        self.move(geom.x + geom.width - 324, geom.y + 34)
+        self.move(geom.x + geom.width - 344, geom.y + 34)
         self.show_all()
         self._load_async()
 
