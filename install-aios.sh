@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-echo "=== [1/6] Configurar APT sem pacotes recomendados e locales PT/EN ==="
+echo "=== [1/6] Configurar APT sem pacotes recomendados, dpkg nodoc e locales PT/EN ==="
 sudo cp config/99norecommends /etc/apt/apt.conf.d/99norecommends
+sudo cp config/01_nodoc /etc/dpkg/dpkg.cfg.d/01_nodoc
 sudo sed -i 's/^# *pt_PT.UTF-8 UTF-8/pt_PT.UTF-8 UTF-8/' /etc/locale.gen
 sudo locale-gen pt_PT.UTF-8 en_US.UTF-8
 sudo apt-get update
@@ -12,7 +13,7 @@ sudo DEBIAN_FRONTEND=noninteractive apt-get install -y \
   xorg xinit openbox pcmanfm picom wmctrl x11-xserver-utils papirus-icon-theme librsvg2-common \
   python3-gi python3-gi-cairo python3-cairo gir1.2-gtk-3.0 gir1.2-webkit2-4.1 python3-markdown spice-vdagent \
   network-manager cups brightnessctl pipewire wireplumber dunst libnotify-bin podman ufw i3lock \
-  gvfs gvfs-backends udisks2 scrot lxpolkit xss-lock gpicview \
+  gvfs udisks2 scrot lxpolkit xss-lock gpicview \
   fonts-inter fonts-jetbrains-mono earlyoom bibata-cursor-theme \
   python3 python3-fastapi python3-uvicorn python3-psutil \
   curl git libglib2.0-bin xterm zram-tools
@@ -66,6 +67,7 @@ RuntimeMaxUse=20M
 EOF
 sudo systemctl disable --now cups.service || true
 sudo systemctl enable cups.socket || true
+sudo systemctl disable --now netavark-firewalld-reload.service || true
 sudo systemctl enable --now earlyoom || true
 
 echo "=== [4/6] Instalar aplicação Spotlight e Antigravity CLI (agy) ==="
