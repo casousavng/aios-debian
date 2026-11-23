@@ -55,19 +55,37 @@ REPLY_HTML = """<!DOCTYPE html>
   .msg-row { display: flex; width: 100%; margin: 8px 0; }
   .msg-user { justify-content: flex-end; }
   .msg-ai { justify-content: flex-start; }
-  .bubble { padding: 8px 12px; border-radius: 14px; }
+  .bubble { position: relative; padding: 8px 12px; border-radius: 14px; }
   .bubble-user { max-width: 84%; background: rgba(103, 232, 249, 0.14); border: 1px solid rgba(103, 232, 249, 0.34); color: #f8fafc; border-bottom-right-radius: 4px; }
-  .bubble-ai { width: 100%; max-width: 100%; background: transparent; border: none; padding: 2px 2px; color: #e2e8f0; }
+  .bubble-ai { width: 100%; max-width: 100%; background: transparent; border: none; padding: 2px 2px 14px 2px; color: #e2e8f0; }
+  .msg-copy-btn { position: absolute; right: 4px; bottom: 2px; opacity: 0; transition: opacity 0.15s;
+    background: rgba(15, 23, 42, 0.85); border: 1px solid rgba(255,255,255,0.16); border-radius: 6px;
+    color: #cbd5e1; font-size: 10px; padding: 1px 6px; cursor: pointer; font-family: system-ui, sans-serif; }
+  .bubble:hover .msg-copy-btn { opacity: 1; }
+  .msg-copy-btn:hover { background: rgba(103, 232, 249, 0.22); color: #ffffff; }
   .bubble p:first-child { margin-top: 0; }
   .bubble p:last-child { margin-bottom: 0; }
-  .file-chip { display: inline-block; background: rgba(15, 23, 42, 0.65); border: 1px solid rgba(103, 232, 249, 0.35);
-    color: #67e8f9; border-radius: 8px; padding: 1px 7px; font-size: 11px; margin: 0 2px; }
+  .file-chip { display: inline-flex; align-items: center; gap: 4px; background: rgba(15, 23, 42, 0.65); border: 1px solid rgba(103, 232, 249, 0.35);
+    color: #67e8f9; border-radius: 8px; padding: 1px 7px; font-size: 11px; margin: 0 2px; vertical-align: middle; }
   .thinking-pill { display: inline-flex; align-items: center; gap: 7px; color: #94a3b8; font-size: 12px; }
   .live-dot { width: 7px; height: 7px; border-radius: 50%; background: #67e8f9;
     animation: pulseDot 1.1s ease-in-out infinite; display: inline-block; }
   @keyframes pulseDot { 0%, 100% { opacity: 0.35; transform: scale(0.85); } 50% { opacity: 1; transform: scale(1.15); } }
 </style>
 <script>
+window.copyText = function(txt) {
+  var ta = document.createElement('textarea');
+  ta.value = txt;
+  ta.style.position = 'fixed';
+  ta.style.opacity = '0';
+  document.body.appendChild(ta);
+  ta.select();
+  try { document.execCommand('copy'); } catch(e) {}
+  document.body.removeChild(ta);
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(txt).catch(function(){});
+  }
+};
 window.enhanceReply = function() {
   document.querySelectorAll('pre').forEach(function(pre) {
     if (pre.querySelector('.code-copy-btn')) return;
@@ -78,13 +96,26 @@ window.enhanceReply = function() {
       e.stopPropagation();
       var code = pre.querySelector('code');
       var txt = code ? code.innerText : pre.innerText;
-      if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(txt).catch(function(){});
-      }
+      window.copyText(txt);
       btn.textContent = '✓';
       setTimeout(function() { btn.textContent = 'Copiar'; }, 1200);
     };
     pre.appendChild(btn);
+  });
+  document.querySelectorAll('.bubble').forEach(function(b) {
+    if (b.querySelector('.msg-copy-btn') || b.querySelector('.thinking-pill')) return;
+    var mb = document.createElement('button');
+    mb.className = 'msg-copy-btn';
+    mb.textContent = 'Copiar';
+    mb.onclick = function(e) {
+      e.stopPropagation();
+      var clone = b.cloneNode(true);
+      clone.querySelectorAll('.msg-copy-btn, .code-copy-btn').forEach(function(x){ x.remove(); });
+      window.copyText(clone.innerText.trim());
+      mb.textContent = '✓';
+      setTimeout(function() { mb.textContent = 'Copiar'; }, 1200);
+    };
+    b.appendChild(mb);
   });
 };
 </script></head><body>%BODY%<script>window.enhanceReply();</script></body></html>"""
@@ -2356,7 +2387,8 @@ class SpotlightWindow(Gtk.Window):
                         def _chip(m):
                             full = m.group(1)
                             bname = full.rstrip("/").split("/")[-1] or full
-                            return f'<span class="file-chip" title="{_html.escape(full)}">📄 {_html.escape(bname)}</span>'
+                            svg = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>'
+                            return f'<span class="file-chip" title="{_html.escape(full)}">{svg}{_html.escape(bname)}</span>'
                         content_fmt = re.sub(r"@([^\s]+)", _chip, _html.escape(content)).replace("\n", "<br>")
                         html_part = f"<p>{content_fmt}</p>"
                     else:
