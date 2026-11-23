@@ -64,8 +64,18 @@
     <keybind key="W-2"><action name="GoToDesktop"><to>2</to></action></keybind>
     <keybind key="W-3"><action name="GoToDesktop"><to>3</to></action></keybind>
     <keybind key="W-4"><action name="GoToDesktop"><to>4</to></action></keybind>
+    <keybind key="W-S-1"><action name="SendToDesktop"><to>1</to><follow>yes</follow></action></keybind>
+    <keybind key="W-S-2"><action name="SendToDesktop"><to>2</to><follow>yes</follow></action></keybind>
+    <keybind key="W-S-3"><action name="SendToDesktop"><to>3</to><follow>yes</follow></action></keybind>
+    <keybind key="W-S-4"><action name="SendToDesktop"><to>4</to><follow>yes</follow></action></keybind>
     <keybind key="C-A-Left"><action name="GoToDesktop"><to>left</to></action></keybind>
     <keybind key="C-A-Right"><action name="GoToDesktop"><to>right</to></action></keybind>
+    <!-- Super + T: Terminal rápido -->
+    <keybind key="W-t">
+      <action name="Execute">
+        <command>xterm</command>
+      </action>
+    </keybind>
     <!-- Super + L: Bloquear ecrã -->
     <keybind key="W-l">
       <action name="Execute">

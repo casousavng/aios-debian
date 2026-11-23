@@ -512,6 +512,8 @@ def get_system_commands():
         ("#chats", t("slash_chats"), "local:chats"),
         ("#apps", t("slash_apps"), "local:apps"),
         ("#audit", t("slash_audit"), "local:audit"),
+        ("#ports", t("slash_ports"), "local:ports"),
+        ("#proj", t("slash_proj"), "local:proj"),
         ("#notif", t("slash_notif"), "local:notif"),
         ("#clip", t("slash_clip"), "local:clip"),
         ("#screenshot", t("slash_screenshot"), "local:screenshot"),
@@ -713,11 +715,16 @@ class RemindersPopover(Gtk.Window):
         nhdr_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
         self.notif_hdr = Gtk.Label(label=t("bell_notif_hdr"), xalign=0)
         self.notif_hdr.get_style_context().add_class("pop-title")
+        self.dnd_btn = Gtk.Button(label=t("dnd_btn"))
+        self.dnd_btn.get_style_context().add_class("reply-btn")
+        self.dnd_btn.connect("clicked", self._toggle_dnd)
         self.clear_btn = Gtk.Button(label=t("bell_clear"))
         self.clear_btn.get_style_context().add_class("reply-btn")
         self.clear_btn.connect("clicked", self._clear_notifs)
         nhdr_row.pack_start(self.notif_hdr, True, True, 0)
         nhdr_row.pack_end(self.clear_btn, False, False, 0)
+        nhdr_row.pack_end(self.dnd_btn, False, False, 0)
+        self.on_dnd_changed = None
         tab_notif.pack_start(nhdr_row, False, False, 0)
         self.notif_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
         tab_notif.pack_start(self.notif_box, False, False, 0)
@@ -790,6 +797,21 @@ class RemindersPopover(Gtk.Window):
         self.move(geom.x + geom.width - 344, geom.y + 34)
         self.show_all()
         self._load_async()
+
+    def _toggle_dnd(self, *_):
+        subprocess.run(["dunstctl", "set-paused", "toggle"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        self._sync_dnd_ui()
+
+    def _sync_dnd_ui(self):
+        paused = False
+        try:
+            paused = subprocess.check_output(["dunstctl", "is-paused"], text=True, stderr=subprocess.DEVNULL).strip() == "true"
+        except Exception:
+            pass
+        ctx = self.dnd_btn.get_style_context()
+        ctx.add_class("seg-btn-active") if paused else ctx.remove_class("seg-btn-active")
+        if self.on_dnd_changed:
+            self.on_dnd_changed(paused)
 
     def _clear_notifs(self, *_):
         def _w():
@@ -1633,13 +1655,17 @@ class TopBarWindow(Gtk.Window):
 
         self.bell_btn = Gtk.Button()
         bell_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=3)
-        bell_ico = Gtk.Image.new_from_icon_name("notifications-symbolic", Gtk.IconSize.MENU)
-        bell_ico.set_pixel_size(14)
+        self.bell_ico = Gtk.Image.new_from_icon_name("notifications-symbolic", Gtk.IconSize.MENU)
+        self.bell_ico.set_pixel_size(14)
         self.bell_lbl = Gtk.Label(label="")
         self.bell_lbl.get_style_context().add_class("topbar-item")
-        bell_box.pack_start(bell_ico, False, False, 0)
+        bell_box.pack_start(self.bell_ico, False, False, 0)
         bell_box.pack_start(self.bell_lbl, False, False, 0)
         self.bell_btn.add(bell_box)
+        self.rem_popover.on_dnd_changed = lambda p: self.bell_ico.set_from_icon_name(
+            "notifications-disabled-symbolic" if p else "notifications-symbolic", Gtk.IconSize.MENU
+        )
+        self.rem_popover._sync_dnd_ui()
         self.bell_btn.set_can_focus(False)
         self.bell_btn.set_valign(Gtk.Align.CENTER)
         self.bell_btn.get_style_context().add_class("status-trigger")
@@ -2622,6 +2648,18 @@ class SpotlightWindow(Gtk.Window):
             if q in name.lower():
                 matches.append(("app", name, t("open_app", cmd=cmd.split()[0]), icon_name, cmd))
 
+        # 2.5 Projects in ~/Projetos
+        proj_dir = HOME / "Projetos"
+        if proj_dir.exists():
+            try:
+                for p in sorted(proj_dir.iterdir()):
+                    if p.is_dir() and not p.name.startswith(".") and q in p.name.lower():
+                        is_git = (p / ".git").exists()
+                        sub = "~/Projetos (Git)" if is_git else "~/Projetos"
+                        matches.append(("open_proj", p.name, sub, "utilities-terminal", str(p)))
+            except OSError:
+                pass
+
         # 3. Recursive files in user folders (BFS up to depth 3, 60ms budget)
         for name, p_str, is_dir in self._scan_files(q, SEARCH_DIRS, limit=6, max_depth=3):
             icon_name = "folder" if is_dir else "text-x-generic"
@@ -2715,15 +2753,9 @@ class SpotlightWindow(Gtk.Window):
         self.clip_history.insert(0, txt)
         self.clip_history = self.clip_history[:15]
 
-    def show_clip_history(self):
-        if not self.clip_history:
-            self.show_reply(t("no_clip"))
-            return
+    def _populate_list(self, matches):
         self.reply_box.hide()
-        matches = []
-        for idx, txt in enumerate(self.clip_history):
-            one_line = " ".join(txt.splitlines())[:75]
-            matches.append(("clip", one_line, f"{len(txt)} chars", "edit-paste", txt))
+        self.draft_box.hide()
         self.results = matches
         self._last_match_keys = None
         for child in self.listbox.get_children():
@@ -2736,8 +2768,12 @@ class SpotlightWindow(Gtk.Window):
             hbox.pack_start(ico, False, False, 0)
             box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=1)
             t_lbl = Gtk.Label(label=title, xalign=0)
+            t_lbl.set_ellipsize(Pango.EllipsizeMode.END)
+            t_lbl.set_max_width_chars(64)
             t_lbl.get_style_context().add_class("row-title")
             s_lbl = Gtk.Label(label=sub, xalign=0)
+            s_lbl.set_ellipsize(Pango.EllipsizeMode.END)
+            s_lbl.set_max_width_chars(72)
             s_lbl.get_style_context().add_class("row-sub")
             box.pack_start(t_lbl, False, False, 0)
             box.pack_start(s_lbl, False, False, 0)
@@ -2746,6 +2782,79 @@ class SpotlightWindow(Gtk.Window):
             self.listbox.add(row)
         self.divider.show()
         self._show_list_scroll()
+
+    def _load_clip_pins(self):
+        pf = HOME / ".ai-os" / "clip_pins.json"
+        try:
+            if pf.exists():
+                return json.loads(pf.read_text(encoding="utf-8"))[:10]
+        except Exception:
+            pass
+        return []
+
+    def _save_clip_pins(self, pins):
+        pf = HOME / ".ai-os" / "clip_pins.json"
+        pf.parent.mkdir(parents=True, exist_ok=True)
+        pf.write_text(json.dumps(pins[:10], indent=2), encoding="utf-8")
+
+    def show_clip_history(self):
+        pins = self._load_clip_pins()
+        if not self.clip_history and not pins:
+            self.show_reply(t("no_clip"))
+            return
+        matches = []
+        if self.clip_history and self.clip_history[0] not in pins:
+            latest = self.clip_history[0]
+            matches.append(("pin_clip", f"+ {t('clip_pin')}: {' '.join(latest.splitlines())[:55]}", f"{len(latest)} chars", "bookmark-new", latest))
+        for txt in pins:
+            matches.append(("clip", f"[Pin] {' '.join(txt.splitlines())[:65]}", f"{len(txt)} chars", "emblem-favorite", txt))
+        for txt in self.clip_history:
+            if txt not in pins:
+                one_line = " ".join(txt.splitlines())[:75]
+                matches.append(("clip", one_line, f"{len(txt)} chars", "edit-paste", txt))
+        self._populate_list(matches)
+
+    def show_ports_menu(self):
+        matches = []
+        try:
+            with urllib.request.urlopen(f"{API_BASE}/api/ports", timeout=3) as r:
+                data = json.loads(r.read().decode())
+            for c in data.get("containers", []):
+                matches.append(("stop_container", f"Container: {c['name']}", c.get("ports") or c["id"], "utilities-terminal", c["name"]))
+            for p in data.get("ports", []):
+                tag = "Parar processo" if p.get("mine") else "Sistema (root)"
+                matches.append(("stop_port" if p.get("mine") else "noop", f":{p['port']} — {p['name']} (PID {p['pid']})", tag, "network-server", p["pid"]))
+        except Exception:
+            pass
+        if not matches:
+            self.hide_results()
+            self.show_reply(t("ports_empty"))
+            return
+        self._populate_list(matches)
+
+    def show_projects_menu(self):
+        proj_dir = HOME / "Projetos"
+        matches = []
+        if proj_dir.exists():
+            try:
+                for p in sorted(proj_dir.iterdir()):
+                    if p.is_dir() and not p.name.startswith("."):
+                        branch = ""
+                        head = p / ".git" / "HEAD"
+                        if head.exists():
+                            try:
+                                ref = head.read_text(encoding="utf-8").strip()
+                                branch = f"git:{ref.split('/')[-1]}"
+                            except OSError:
+                                branch = "git"
+                        matches.append(("open_proj", p.name, branch or str(p).replace(str(HOME), "~"), "utilities-terminal", str(p)))
+            except OSError:
+                pass
+        if not matches:
+            self.hide_results()
+            self.show_reply(t("proj_empty"))
+            return
+        self._populate_list(matches)
 
     def toggle_all_apps(self, *_):
         if self.list_scroll.is_visible() and self._last_match_keys == "__all_apps__":
@@ -2979,6 +3088,35 @@ class SpotlightWindow(Gtk.Window):
             subprocess.Popen(payload, shell=True)
             self.clear_query()
             self.hide_results()
+        elif kind == "pin_clip":
+            pins = self._load_clip_pins()
+            if payload not in pins:
+                pins.insert(0, payload)
+                self._save_clip_pins(pins)
+            self.clear_query()
+            self.show_clip_history()
+        elif kind == "open_proj":
+            self.clear_query()
+            self.hide_results()
+            subprocess.Popen(["xterm", "-e", "bash", "-lc", f"cd {json.dumps(payload)} && exec bash"])
+        elif kind in ("stop_port", "stop_container"):
+            body = {"pid": payload} if kind == "stop_port" else {"container": payload}
+            def _kill():
+                try:
+                    req = urllib.request.Request(
+                        f"{API_BASE}/api/ports/kill",
+                        data=json.dumps(body).encode(),
+                        headers={"Content-Type": "application/json"},
+                        method="POST",
+                    )
+                    urllib.request.urlopen(req, timeout=8).read()
+                except Exception:
+                    pass
+                GLib.idle_add(lambda: (self.hide_results(), self.show_reply(t("port_stopped")), False)[2])
+            threading.Thread(target=_kill, daemon=True).start()
+            self.clear_query()
+        elif kind == "noop":
+            pass
         elif kind in ("del_reminder", "del_cron"):
             ep = "reminders" if kind == "del_reminder" else "crons"
             def _del():
@@ -3018,6 +3156,12 @@ class SpotlightWindow(Gtk.Window):
             elif payload == "local:clip":
                 self.clear_query()
                 self.show_clip_history()
+            elif payload == "local:ports":
+                self.clear_query()
+                self.show_ports_menu()
+            elif payload == "local:proj":
+                self.clear_query()
+                self.show_projects_menu()
             elif payload == "local:reminders":
                 self.clear_query()
                 self.show_reminders_menu()

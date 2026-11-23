@@ -845,6 +845,68 @@ def clear_notifications():
     return {"ok": True}
 
 
+class KillPortRequest(BaseModel):
+    pid: int | None = None
+    container: str | None = None
+
+
+@app.get("/api/ports")
+def list_ports():
+    ports = []
+    seen = set()
+    uid = os.getuid()
+    try:
+        for c in psutil.net_connections(kind="inet"):
+            if c.status == psutil.CONN_LISTEN and c.laddr:
+                p = c.laddr.port
+                pid = c.pid
+                key = (p, pid)
+                if key in seen:
+                    continue
+                seen.add(key)
+                name, mine = "-", False
+                if pid:
+                    try:
+                        proc = psutil.Process(pid)
+                        name = proc.name()
+                        mine = proc.uids().real == uid
+                    except Exception:
+                        pass
+                ports.append({"port": p, "pid": pid, "name": name, "mine": mine})
+    except Exception:
+        pass
+    ports.sort(key=lambda x: x["port"])
+    containers = []
+    try:
+        out = subprocess.check_output(
+            ["podman", "ps", "--format", "{{.ID}}|{{.Names}}|{{.Ports}}"],
+            text=True, stderr=subprocess.DEVNULL, timeout=3,
+        )
+        for line in out.splitlines():
+            parts = line.split("|", 2)
+            if len(parts) == 3:
+                containers.append({"id": parts[0], "name": parts[1], "ports": parts[2]})
+    except Exception:
+        pass
+    return {"ports": ports[:15], "containers": containers}
+
+
+@app.post("/api/ports/kill")
+def kill_port(req: KillPortRequest):
+    if req.container and re.match(r"^[a-zA-Z0-9_.-]+$", req.container):
+        subprocess.run(["podman", "stop", req.container], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=8)
+        return {"ok": True}
+    if req.pid and req.pid > 1:
+        try:
+            proc = psutil.Process(req.pid)
+            if proc.uids().real == os.getuid():
+                proc.terminate()
+                return {"ok": True}
+        except Exception as e:
+            return {"ok": False, "error": str(e)}
+    return {"ok": False}
+
+
 if __name__ == "__main__":
     _schedule_all_reminders()
     uvicorn.run(app, host="127.0.0.1", port=8765, log_level="warning")
