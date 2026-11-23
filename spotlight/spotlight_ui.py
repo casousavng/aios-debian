@@ -1474,7 +1474,9 @@ class SpotlightWindow(Gtk.Window):
                 with urllib.request.urlopen(req, timeout=15) as r:
                     res = json.loads(r.read().decode())
                 if res.get("ok"):
+                    GLib.idle_add(self.clear_query)
                     GLib.idle_add(self.show_reply, t("login_ok"))
+                    GLib.timeout_add(2500, lambda: (self.hide_results(), False)[1])
                 else:
                     GLib.idle_add(self.show_reply, t("login_fail", err=res.get("error", "unknown")))
             except Exception as e:

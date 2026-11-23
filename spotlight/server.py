@@ -75,7 +75,7 @@ def read_chat(chat_id: str):
 
 
 _MODELS_CACHE = None
-_AUTH_SESSION = {"pid": None, "fd": None}
+_AUTH_SESSION = {"pid": None, "fd": None, "browser_pid": None}
 AGY_DIR = HOME / ".gemini" / "antigravity-cli"
 AGY_TOKEN = AGY_DIR / "antigravity-oauth-token"
 
@@ -159,7 +159,8 @@ def agy_auth_login_start():
     if url:
         env = os.environ.copy()
         env.setdefault("DISPLAY", ":0")
-        subprocess.Popen(["chromium", url], env=env)
+        bproc = subprocess.Popen(["chromium", url], env=env)
+        _AUTH_SESSION["browser_pid"] = bproc.pid
         return {"ok": True, "url": url}
     return {"ok": False, "error": "Could not obtain OAuth URL from agy"}
 
@@ -185,6 +186,12 @@ def agy_auth_login_code(req: AuthCodeRequest):
         pass
     _AUTH_SESSION["pid"] = None
     _AUTH_SESSION["fd"] = None
+    if _AUTH_SESSION.get("browser_pid"):
+        try:
+            os.kill(_AUTH_SESSION["browser_pid"], 15)
+        except OSError:
+            pass
+        _AUTH_SESSION["browser_pid"] = None
 
     if AGY_TOKEN.exists():
         cfg_path = AGY_DIR / "settings.json"
