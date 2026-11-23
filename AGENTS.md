@@ -48,7 +48,10 @@ Quando o utilizador pedir para abrir um site, ler conteúdo web, preencher formu
 6. `aios-web screenshot [path]` — Captura o ecrã do browser para análise.
 7. `aios-web dom` — Volta a ler o DOM após ações para confirmar o resultado real.
 
-## 7. Ferramentas Nativas do Sistema
+## 7. Ferramentas Nativas, APIs e MCP
+- **Chromium CDP global:** `/etc/chromium.d/aios-cdp` ativa `--remote-debugging-port=9222 --remote-debugging-address=127.0.0.1` em qualquer janela Chromium (para `aios-web` ou servidores MCP de browser).
+- **API local do SO:** `http://127.0.0.1:8765` (`aios-spotlight.service`) expõe estado, Wi-Fi, áudio (`wpctl`), Bluetooth e modelos `agy`.
+- **Contentores & MCPs isolados:** `podman` rootless está pronto para correr servidores MCP ou ferramentas sem sujar o sistema.
 - **GUI fora do browser:** usa `xdotool` (`DISPLAY=:0`) + `scrot` quando precisares de interagir com janelas nativas X11.
 - **PDFs e JSON locais:** usa `pdftotext <ficheiro.pdf> -` e `jq` para leitura rápida.
 - **Lembretes e tarefas agendadas:** usa `cron` (`crontab`) com `DISPLAY=:0 notify-send "AI-OS" "<mensagem>"`.

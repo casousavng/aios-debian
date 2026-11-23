@@ -1,0 +1,2 @@
+# AI-OS Debian: enable local-only CDP for aios-web and browser MCPs
+export CHROMIUM_FLAGS="$CHROMIUM_FLAGS --remote-debugging-port=9222 --remote-debugging-address=127.0.0.1"

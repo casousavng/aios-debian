@@ -4,6 +4,8 @@ set -euo pipefail
 echo "=== [1/6] Configurar APT sem pacotes recomendados, dpkg nodoc e locales PT/EN ==="
 sudo cp config/99norecommends /etc/apt/apt.conf.d/99norecommends
 sudo cp config/01_nodoc /etc/dpkg/dpkg.cfg.d/01_nodoc
+sudo mkdir -p /etc/chromium.d
+sudo cp config/aios-cdp /etc/chromium.d/aios-cdp
 sudo sed -i 's/^# *pt_PT.UTF-8 UTF-8/pt_PT.UTF-8 UTF-8/' /etc/locale.gen
 sudo locale-gen pt_PT.UTF-8 en_US.UTF-8
 sudo apt-get update
