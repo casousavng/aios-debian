@@ -543,8 +543,6 @@ def ask_stream(req: PromptRequest):
 
     chat_id = req.chat_id or datetime.datetime.now().strftime("%Y-%m-%d_%H%M%S")
     chat_file = CHATS_DIR / f"{chat_id}.md"
-    with chat_file.open("a", encoding="utf-8") as f:
-        f.write(f"\n### Utilizador\n{req.prompt}\n")
 
     env = os.environ.copy()
     extra_bins = f"{HOME / '.local/bin'}:{HOME / '.opencode/bin'}"
@@ -567,6 +565,9 @@ def ask_stream(req: PromptRequest):
             res = ask(req)
             yield json.dumps({"chat_id": res["chat_id"], "reply": res["reply"], "done": True}) + "\n"
             return
+
+        with chat_file.open("a", encoding="utf-8") as f:
+            f.write(f"\n### Utilizador\n{req.prompt}\n")
 
         cfg_mode = "auto"
         try:
