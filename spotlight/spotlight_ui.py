@@ -1375,6 +1375,7 @@ class SpotlightWindow(Gtk.Window):
         self.set_wmclass("AISpotlight", "AISpotlight")
         self.set_decorated(False)
         self.set_resizable(False)
+        self.set_gravity(Gdk.Gravity.SOUTH)
         self.set_keep_above(True)
         self.stick()
         self.set_accept_focus(True)
@@ -1640,7 +1641,7 @@ class SpotlightWindow(Gtk.Window):
         geom = monitor.get_geometry()
         alloc = self.get_allocation()
         w = 720
-        h = max(alloc.height, 56)
+        h = alloc.height if alloc.height > 1 else 48
         x = geom.x + (geom.width - w) // 2
         y = geom.y + geom.height - h - 24
         if self._last_pos != (x, y):
