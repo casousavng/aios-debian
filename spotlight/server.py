@@ -488,8 +488,8 @@ def ask(req: PromptRequest):
         (LOGS_DIR / "last_action.log").write_text(proc.stdout + "\n" + proc.stderr, encoding="utf-8")
     else:
         reply = (
-            "⚠️ Nenhum agente CLI (`agy` ou `opencode`) encontrado no PATH.\n"
-            "Instala e autentica o teu agente CLI na máquina para ativar a execução autónoma."
+            "⚠️ Motor do Assistente AI-OS não encontrado no sistema.\n"
+            "Instala e autentica o motor de agente na máquina para ativar a execução autónoma."
         )
 
     with chat_file.open("a", encoding="utf-8") as f:
@@ -557,7 +557,7 @@ def ask_stream(req: PromptRequest):
 
     def _stream():
         if not agent_bin:
-            msg = "⚠️ Nenhum agente CLI (`agy` ou `opencode`) encontrado no PATH."
+            msg = "⚠️ Motor do Assistente AI-OS não encontrado no sistema."
             yield json.dumps({"chat_id": chat_id, "reply": msg, "done": True}) + "\n"
             return
 

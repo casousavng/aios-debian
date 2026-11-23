@@ -1393,7 +1393,7 @@ def open_settings_dialog(spotlight):
             cur_mode = sd.get("agentMode", "auto")
     except Exception:
         pass
-    model_lbl = Gtk.Label(label=f"{cur_model or 'agy'} ({cur_mode})", xalign=0)
+    model_lbl = Gtk.Label(label=f"{cur_model or 'AI-OS'} ({cur_mode})", xalign=0)
     model_lbl.get_style_context().add_class("pop-sub")
     tab_ai.pack_start(model_lbl, False, False, 0)
 
