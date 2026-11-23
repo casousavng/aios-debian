@@ -766,9 +766,9 @@ class ControlPopover(Gtk.Window):
             self.set_visual(visual)
         self.connect("draw", clear_transparent)
 
-        card = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        card = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
         card.get_style_context().add_class("popover-card")
-        card.set_size_request(290, -1)
+        card.set_size_request(310, -1)
         self.add(card)
 
         # Header: Date/Time + Timezone button
@@ -782,71 +782,68 @@ class ControlPopover(Gtk.Window):
         hdr_row.pack_end(self.tz_btn, False, False, 0)
         card.pack_start(hdr_row, False, False, 0)
 
-        div1 = Gtk.Box()
-        div1.get_style_context().add_class("divider")
-        card.pack_start(div1, False, False, 0)
+        seg = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=3)
+        seg.set_homogeneous(True)
+        seg.get_style_context().add_class("seg-bar")
+        self.tab_audio_btn = Gtk.Button(label=t("sec_audio_display"))
+        self.tab_conn_btn = Gtk.Button(label=t("sec_conn"))
+        self.tab_sys_btn = Gtk.Button(label=t("sec_sys"))
+        for idx, b in enumerate((self.tab_audio_btn, self.tab_conn_btn, self.tab_sys_btn)):
+            b.set_can_focus(False)
+            b.get_style_context().add_class("seg-btn")
+            if idx == 0:
+                b.get_style_context().add_class("seg-btn-active")
+            seg.pack_start(b, True, True, 0)
+        card.pack_start(seg, False, False, 0)
 
-        # Section 1: Audio & Display
-        self.sec1_lbl = Gtk.Label(label=t("sec_audio_display"), xalign=0)
-        self.sec1_lbl.get_style_context().add_class("pop-sub")
-        card.pack_start(self.sec1_lbl, False, False, 0)
+        self.stack = Gtk.Stack()
+        self.stack.set_vhomogeneous(False)
+        card.pack_start(self.stack, True, True, 0)
 
-        vol_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+        # Tab 1: Audio & Display
+        tab_audio = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
         self.vol_lbl = Gtk.Label(label=f"{t('volume')}: 70%", xalign=0)
         self.vol_lbl.get_style_context().add_class("pop-sub")
-        vol_row.pack_start(self.vol_lbl, False, False, 0)
-        card.pack_start(vol_row, False, False, 0)
+        tab_audio.pack_start(self.vol_lbl, False, False, 0)
         self.vol_scale = Gtk.Scale.new_with_range(Gtk.Orientation.HORIZONTAL, 0, 100, 5)
         self.vol_scale.set_value(70)
         self.vol_scale.set_draw_value(False)
         self.vol_scale.connect("value-changed", self.on_vol_changed)
-        card.pack_start(self.vol_scale, False, False, 0)
+        tab_audio.pack_start(self.vol_scale, False, False, 0)
 
         self.bri_lbl = Gtk.Label(label=f"{t('brightness')}: 100%", xalign=0)
         self.bri_lbl.get_style_context().add_class("pop-sub")
-        card.pack_start(self.bri_lbl, False, False, 0)
+        tab_audio.pack_start(self.bri_lbl, False, False, 0)
         self.bri_scale = Gtk.Scale.new_with_range(Gtk.Orientation.HORIZONTAL, 10, 100, 5)
         self.bri_scale.set_value(100)
         self.bri_scale.set_draw_value(False)
         self.bri_scale.connect("value-changed", self.on_bri_changed)
-        card.pack_start(self.bri_scale, False, False, 0)
+        tab_audio.pack_start(self.bri_scale, False, False, 0)
 
         self.audio_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=3)
-        card.pack_start(self.audio_box, False, False, 0)
+        tab_audio.pack_start(self.audio_box, False, False, 0)
+        self.stack.add_named(tab_audio, "audio")
 
-        div2 = Gtk.Box()
-        div2.get_style_context().add_class("divider")
-        card.pack_start(div2, False, False, 0)
-
-        # Section 2: Connections
-        self.sec2_lbl = Gtk.Label(label=t("sec_conn"), xalign=0)
-        self.sec2_lbl.get_style_context().add_class("pop-sub")
-        card.pack_start(self.sec2_lbl, False, False, 0)
-
+        # Tab 2: Connections
+        tab_conn = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
         self.wifi_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=3)
-        card.pack_start(self.wifi_box, False, False, 0)
+        tab_conn.pack_start(self.wifi_box, False, False, 0)
 
         self.bt_btn = Gtk.Button(label=f"{t('bt_label')}: Toggle")
         self.bt_btn.get_style_context().add_class("reply-btn")
         self.bt_btn.connect("clicked", self._on_bt_toggle)
-        card.pack_start(self.bt_btn, False, False, 0)
+        tab_conn.pack_start(self.bt_btn, False, False, 0)
 
         self.bt_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=3)
-        card.pack_start(self.bt_box, False, False, 0)
+        tab_conn.pack_start(self.bt_box, False, False, 0)
+        self.stack.add_named(tab_conn, "conn")
 
-        div3 = Gtk.Box()
-        div3.get_style_context().add_class("divider")
-        card.pack_start(div3, False, False, 0)
-
-        # Section 3: System 2x2 quick actions
-        self.sec3_lbl = Gtk.Label(label=t("sec_sys"), xalign=0)
-        self.sec3_lbl.get_style_context().add_class("pop-sub")
-        card.pack_start(self.sec3_lbl, False, False, 0)
-
+        # Tab 3: System 2x2 quick actions
+        tab_sys = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
         grid = Gtk.Grid(column_spacing=6, row_spacing=6, column_homogeneous=True)
         self.displays_btn = Gtk.Button(label=t("displays_short"))
         self.displays_btn.get_style_context().add_class("reply-btn")
-        self.displays_btn.connect("clicked", lambda *_: (self.hide(), subprocess.Popen(["xrandr", "--auto"])))
+        self.displays_btn.connect("clicked", lambda *_: (self.hide(), open_displays_dialog()))
         self.lock_btn = Gtk.Button(label=t("lock_short"))
         self.lock_btn.get_style_context().add_class("reply-btn")
         self.lock_btn.connect("clicked", lambda *_: (self.hide(), subprocess.Popen(["/opt/ai-os/spotlight/lock.sh"])))
@@ -860,11 +857,16 @@ class ControlPopover(Gtk.Window):
         grid.attach(self.lock_btn, 1, 0, 1, 1)
         grid.attach(self.reboot_btn, 0, 1, 1, 1)
         grid.attach(self.poweroff_btn, 1, 1, 1, 1)
-        card.pack_start(grid, False, False, 0)
+        tab_sys.pack_start(grid, False, False, 0)
 
         self.info_lbl = Gtk.Label(label=t("podman_ready"), xalign=0)
         self.info_lbl.get_style_context().add_class("pop-sub")
-        card.pack_start(self.info_lbl, False, False, 0)
+        tab_sys.pack_start(self.info_lbl, False, False, 0)
+        self.stack.add_named(tab_sys, "sys")
+
+        self.tab_audio_btn.connect("clicked", lambda *_: self._switch_tab("audio"))
+        self.tab_conn_btn.connect("clicked", lambda *_: self._switch_tab("conn"))
+        self.tab_sys_btn.connect("clicked", lambda *_: self._switch_tab("sys"))
 
         self._hovering = False
         self.add_events(Gdk.EventMask.ENTER_NOTIFY_MASK | Gdk.EventMask.LEAVE_NOTIFY_MASK)
@@ -951,11 +953,21 @@ class ControlPopover(Gtk.Window):
             self.hide()
         return False
 
+    def _switch_tab(self, name):
+        self.stack.set_visible_child_name(name)
+        for btn, key in [(self.tab_audio_btn, "audio"), (self.tab_conn_btn, "conn"), (self.tab_sys_btn, "sys")]:
+            ctx = btn.get_style_context()
+            if key == name:
+                ctx.add_class("seg-btn-active")
+            else:
+                ctx.remove_class("seg-btn-active")
+        self.resize(310, 1)
+
     def refresh_labels(self):
         self.tz_btn.set_label(t("tz_btn"))
-        self.sec1_lbl.set_text(t("sec_audio_display"))
-        self.sec2_lbl.set_text(t("sec_conn"))
-        self.sec3_lbl.set_text(t("sec_sys"))
+        self.tab_audio_btn.set_label(t("sec_audio_display"))
+        self.tab_conn_btn.set_label(t("sec_conn"))
+        self.tab_sys_btn.set_label(t("sec_sys"))
         self.vol_lbl.set_text(f"{t('volume')}: {int(self.vol_scale.get_value())}%")
         self.bri_lbl.set_text(f"{t('brightness')}: {int(self.bri_scale.get_value())}%")
         self.bt_btn.set_label(f"{t('bt_label')}: Toggle")
