@@ -412,12 +412,12 @@ class WindowsPopover(Gtk.Window):
         for child in self.card.get_children():
             self.card.remove(child)
 
-        hdr = Gtk.Label(label="Janelas Abertas", xalign=0)
+        hdr = Gtk.Label(label=t("open_windows"), xalign=0)
         hdr.get_style_context().add_class("pop-title")
         self.card.pack_start(hdr, False, False, 2)
 
         if not wins:
-            empty = Gtk.Label(label="Nenhuma janela aberta", xalign=0)
+            empty = Gtk.Label(label=t("no_windows"), xalign=0)
             empty.get_style_context().add_class("pop-sub")
             self.card.pack_start(empty, False, False, 2)
         else:
