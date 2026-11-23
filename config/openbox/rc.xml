@@ -102,6 +102,32 @@
         <command>/opt/ai-os/spotlight/screenshot.sh</command>
       </action>
     </keybind>
+    <!-- Teclas multimédia: Volume & Brilho com OSD -->
+    <keybind key="XF86AudioRaiseVolume">
+      <action name="Execute">
+        <command>bash -c 'pactl set-sink-volume @DEFAULT_SINK@ +5% && v=$(pactl get-sink-volume @DEFAULT_SINK@ | grep -oE "[0-9]+%" | head -1) && notify-send -h string:x-dunst-stack-tag:osd -t 1200 "Volume" "$v"'</command>
+      </action>
+    </keybind>
+    <keybind key="XF86AudioLowerVolume">
+      <action name="Execute">
+        <command>bash -c 'pactl set-sink-volume @DEFAULT_SINK@ -5% && v=$(pactl get-sink-volume @DEFAULT_SINK@ | grep -oE "[0-9]+%" | head -1) && notify-send -h string:x-dunst-stack-tag:osd -t 1200 "Volume" "$v"'</command>
+      </action>
+    </keybind>
+    <keybind key="XF86AudioMute">
+      <action name="Execute">
+        <command>bash -c 'pactl set-sink-mute @DEFAULT_SINK@ toggle && m=$(pactl get-sink-mute @DEFAULT_SINK@ | awk "{print \$2}") && notify-send -h string:x-dunst-stack-tag:osd -t 1200 "Volume" "$([ "$m" = yes ] && echo Muted || echo Unmuted)"'</command>
+      </action>
+    </keybind>
+    <keybind key="XF86MonBrightnessUp">
+      <action name="Execute">
+        <command>bash -c 'brightnessctl set +10% -q && b=$(brightnessctl -m | cut -d, -f4) && notify-send -h string:x-dunst-stack-tag:osd -t 1200 "Brilho" "$b"'</command>
+      </action>
+    </keybind>
+    <keybind key="XF86MonBrightnessDown">
+      <action name="Execute">
+        <command>bash -c 'brightnessctl set 10%- -q && b=$(brightnessctl -m | cut -d, -f4) && notify-send -h string:x-dunst-stack-tag:osd -t 1200 "Brilho" "$b"'</command>
+      </action>
+    </keybind>
   </keyboard>
   <mouse>
     <dragThreshold>1</dragThreshold>

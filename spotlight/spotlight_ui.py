@@ -923,6 +923,72 @@ class ControlPopover(Gtk.Window):
         GLib.idle_add(_apply)
 
 
+def open_displays_dialog(parent=None):
+    outputs = []
+    try:
+        out = subprocess.check_output(["xrandr", "--query"], text=True, stderr=subprocess.DEVNULL)
+        cur = None
+        for line in out.splitlines():
+            m = re.match(r"^(\S+)\s+connected\b", line)
+            if m:
+                cur = {"name": m.group(1), "modes": [], "active": None}
+                outputs.append(cur)
+                continue
+            if cur and line.startswith("   "):
+                parts = line.split()
+                if parts and re.match(r"^\d+x\d+$", parts[0]):
+                    if parts[0] not in cur["modes"]:
+                        cur["modes"].append(parts[0])
+                    if "*" in line:
+                        cur["active"] = parts[0]
+            elif line and not line.startswith(" "):
+                cur = None
+    except Exception:
+        pass
+
+    dlg = Gtk.Dialog(title=t("displays_short"), transient_for=parent, flags=0)
+    dlg.set_position(Gtk.WindowPosition.CENTER_ALWAYS)
+    dlg.set_default_size(340, -1)
+    box = dlg.get_content_area()
+    box.set_spacing(8)
+    box.set_border_width(14)
+
+    combos = []
+    if not outputs:
+        box.pack_start(Gtk.Label(label="xrandr N/D"), False, False, 0)
+    for o in outputs:
+        row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        lbl = Gtk.Label(label=o["name"], xalign=0)
+        lbl.set_size_request(90, -1)
+        combo = Gtk.ComboBoxText()
+        for idx, mode in enumerate(o["modes"][:15]):
+            combo.append_text(mode)
+            if mode == o["active"]:
+                combo.set_active(idx)
+        if combo.get_active() < 0 and o["modes"]:
+            combo.set_active(0)
+        row.pack_start(lbl, False, False, 0)
+        row.pack_start(combo, True, True, 0)
+        box.pack_start(row, False, False, 0)
+        combos.append((o["name"], combo))
+
+    auto_b = Gtk.Button(label="Auto (xrandr --auto)")
+    auto_b.connect("clicked", lambda *_: subprocess.Popen(["xrandr", "--auto"]))
+    box.pack_start(auto_b, False, False, 0)
+
+    dlg.add_buttons(t("cancel"), Gtk.ResponseType.CANCEL, t("confirm"), Gtk.ResponseType.OK)
+    def _on_resp(d, resp):
+        if resp == Gtk.ResponseType.OK:
+            for oname, combo in combos:
+                mode = combo.get_active_text()
+                if mode:
+                    subprocess.Popen(["xrandr", "--output", oname, "--mode", mode])
+        d.destroy()
+    dlg.connect("response", _on_resp)
+    dlg.show_all()
+    dlg.present()
+
+
 def open_settings_dialog(spotlight):
     dlg = Gtk.Dialog(title=t("settings_title"), flags=0)
     dlg.set_position(Gtk.WindowPosition.CENTER_ALWAYS)
@@ -1041,7 +1107,7 @@ def open_settings_dialog(spotlight):
     tab_sys.set_border_width(14)
     grid = Gtk.Grid(column_spacing=8, row_spacing=8, column_homogeneous=True)
     disp_b = Gtk.Button(label=t("displays_short"))
-    disp_b.connect("clicked", lambda *_: subprocess.Popen(["xrandr", "--auto"]))
+    disp_b.connect("clicked", lambda *_: open_displays_dialog(dlg))
     grid.attach(disp_b, 0, 0, 1, 1)
     upd_b = Gtk.Button(label="#update")
     upd_b.connect("clicked", lambda *_: (dlg.destroy(), subprocess.Popen(["/opt/ai-os/spotlight/update.sh"])))
@@ -2351,8 +2417,7 @@ class SpotlightWindow(Gtk.Window):
             elif payload == "local:displays":
                 self.clear_query()
                 self.hide_results()
-                subprocess.Popen(["xrandr", "--auto"])
-                self.show_reply(t("displays_ok"))
+                open_displays_dialog(self)
             elif payload == "local:settings":
                 self.clear_query()
                 self.hide_results()
