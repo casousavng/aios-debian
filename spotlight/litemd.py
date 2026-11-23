@@ -81,13 +81,13 @@ class LiteMDWindow(Gtk.Window):
         open_btn.connect("clicked", self.on_open_clicked)
         header.pack_start(open_btn)
 
-        self.mode_btn = Gtk.ToggleButton(label="Editar")
-        self.mode_btn.connect("toggled", self.on_mode_toggled)
-        header.pack_end(self.mode_btn)
-
         self.save_btn = Gtk.Button(label="Guardar")
         self.save_btn.connect("clicked", self.on_save_clicked)
-        header.pack_end(self.save_btn)
+        header.pack_start(self.save_btn)
+
+        self.mode_btn = Gtk.ToggleButton(label="Editar")
+        self.mode_btn.connect("toggled", self.on_mode_toggled)
+        header.pack_start(self.mode_btn)
 
         self.dirty = False
         self._current_text = ""
