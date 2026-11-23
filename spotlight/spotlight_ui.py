@@ -967,7 +967,7 @@ def open_settings_dialog(spotlight):
     cur_fs = int(get_config().get("chat_font_size", 13))
     fs_lbl = Gtk.Label(label=f"Texto do Chat: {cur_fs}px" if get_lang() == "pt" else f"Chat Text: {cur_fs}px", xalign=0)
     tab_ui.pack_start(fs_lbl, False, False, 0)
-    fs_scale = Gtk.Scale.new_with_range(Gtk.Orientation.HORIZONTAL, 11, 18, 1)
+    fs_scale = Gtk.Scale.new_with_range(Gtk.Orientation.HORIZONTAL, 8, 18, 1)
     fs_scale.set_value(cur_fs)
     fs_scale.set_draw_value(False)
 
@@ -1015,23 +1015,16 @@ def open_settings_dialog(spotlight):
     tab_ui.pack_start(kb_row, False, False, 0)
     nb.append_page(tab_ui, Gtk.Label(label=t("settings_ui_tab")))
 
-    # Tab 3: System
+    # Tab 3: System (non-duplicated OS tools)
     tab_sys = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
     tab_sys.set_border_width(14)
     grid = Gtk.Grid(column_spacing=8, row_spacing=8, column_homogeneous=True)
-    if spotlight.topbar:
-        tz_b = Gtk.Button(label=t("tz_btn"))
-        tz_b.connect("clicked", lambda *_: (dlg.destroy(), GLib.idle_add(spotlight.topbar.popover._show_tz_dialog)))
-        grid.attach(tz_b, 0, 0, 1, 1)
     disp_b = Gtk.Button(label=t("displays_short"))
     disp_b.connect("clicked", lambda *_: subprocess.Popen(["xrandr", "--auto"]))
-    grid.attach(disp_b, 1, 0, 1, 1)
+    grid.attach(disp_b, 0, 0, 1, 1)
     upd_b = Gtk.Button(label="#update")
     upd_b.connect("clicked", lambda *_: (dlg.destroy(), subprocess.Popen(["/opt/ai-os/spotlight/update.sh"])))
-    grid.attach(upd_b, 0, 1, 1, 1)
-    lock_b = Gtk.Button(label=t("lock_short"))
-    lock_b.connect("clicked", lambda *_: (dlg.destroy(), subprocess.Popen(["/opt/ai-os/spotlight/lock.sh"])))
-    grid.attach(lock_b, 1, 1, 1, 1)
+    grid.attach(upd_b, 1, 0, 1, 1)
     tab_sys.pack_start(grid, False, False, 0)
     nb.append_page(tab_sys, Gtk.Label(label=t("settings_sys")))
 
