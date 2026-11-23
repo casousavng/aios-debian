@@ -1385,7 +1385,10 @@ class SpotlightWindow(Gtk.Window):
         vadj.connect("changed", lambda a: self.mini_scroll.set_visible(a.get_upper() > a.get_page_size() + 2))
         top_row.pack_start(self.mini_scroll, False, False, 0)
 
-        self.resume_chat_btn = Gtk.Button(label="▴ Chat")
+        self.resume_chat_btn = Gtk.Button()
+        self._chat_btn_lbl = Gtk.Label(label="▴ Chat")
+        self._chat_btn_lbl.show()
+        self.resume_chat_btn.add(self._chat_btn_lbl)
         self.resume_chat_btn.set_valign(Gtk.Align.END)
         self.resume_chat_btn.set_size_request(-1, 28)
         self.resume_chat_btn.get_style_context().add_class("chat-pill")
@@ -1528,8 +1531,9 @@ class SpotlightWindow(Gtk.Window):
 
     def _sync_chat_btn(self):
         if self.current_chat_id:
-            self.resume_chat_btn.set_label("▾ Chat" if self.reply_box.is_visible() else "▴ Chat")
-            self.resume_chat_btn.show_all()
+            self._chat_btn_lbl.set_text("▾ Chat" if self.reply_box.is_visible() else "▴ Chat")
+            self._chat_btn_lbl.show()
+            self.resume_chat_btn.show()
         else:
             self.resume_chat_btn.hide()
 
@@ -1567,7 +1571,7 @@ class SpotlightWindow(Gtk.Window):
         try:
             js_res = view.evaluate_javascript_finish(res)
             h = int(js_res.to_int32())
-            view.set_size_request(-1, max(36, min(h + 8, 460)))
+            view.set_size_request(-1, max(36, min(h + 8, 360)))
         except Exception:
             view.set_size_request(-1, 140)
 
@@ -1638,7 +1642,7 @@ class SpotlightWindow(Gtk.Window):
                 hist_md = chat_path.read_text(encoding="utf-8", errors="ignore").strip()
                 if live_stream:
                     pending = getattr(self, "_pending_prompt", "")
-                    if pending and f"### Utilizador\n{pending}" not in hist_md.splitlines()[-3:]:
+                    if pending and f"### Utilizador\n{pending}" not in hist_md[-300:]:
                         hist_md = hist_md + f"\n\n### Utilizador\n{pending}"
                     render_md = hist_md + f"\n\n### AI-OS\n{text}"
                 elif hist_md:
