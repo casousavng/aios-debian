@@ -1126,7 +1126,7 @@ class SpotlightWindow(Gtk.Window):
         self.entry_scroll = Gtk.ScrolledWindow()
         self.entry_scroll.set_shadow_type(Gtk.ShadowType.NONE)
         self.entry_scroll.get_style_context().add_class("clean-scroll")
-        self.entry_scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        self.entry_scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.EXTERNAL)
         self.entry_scroll.set_min_content_height(24)
         self.entry_scroll.set_max_content_height(150)
         self.entry_scroll.set_vexpand(False)
@@ -1308,7 +1308,10 @@ class SpotlightWindow(Gtk.Window):
             self.start_agy_login()
 
     def _sync_entry_height(self):
-        _, nat_h = self.entry.get_preferred_height()
+        w = self.entry_scroll.get_allocated_width()
+        if w < 100:
+            w = 520
+        _, nat_h = self.entry.get_preferred_height_for_width(w)
         target_h = max(24, min(nat_h + 2, 144))
         self.entry_scroll.set_size_request(-1, target_h)
         if not self.list_scroll.is_visible() and not self.reply_box.is_visible():
