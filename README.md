@@ -118,7 +118,10 @@ Cada componente deste sistema foi escolhido para maximizar **agilidade, previsib
 ### 4. Estrutura, Instalação & Build ISO
 
 ```text
-├── build-iso.sh             # Gera ISO Debian bootável (live-build / preseed)
+├── .github/workflows/
+│   └── build-iso.yml        # GitHub Actions: build ISO amd64 + Release
+├── build-live-iso.sh        # Gera ISO Live + Instalador híbrida (amd64, zero credenciais)
+├── build-iso.sh             # Gera ISO Netinst autónoma (preseed)
 ├── preseed.cfg              # Instalação autónoma Debian Netinst
 ├── install-aios.sh          # Provisionamento completo do sistema
 ├── AGENTS.md                # Constituição, regras e ferramentas do agente
@@ -156,17 +159,144 @@ python3 -m unittest discover -s tests -v
 
 ## 🇬🇧 English Version
 
-### Philosophy & Why These Choices
-**AI-OS Debian** is built from the ground up on **Debian 13 Netinst** to keep idle memory around **380–400 MB** while placing a native **GTK3 + WebKit2 Spotlight** and an abstracted AI assistant at the center of daily workflows:
+### 1. Philosophy & Architecture Decisions (What & Why)
 
-- **Minimal Base**: `APT::Install-Recommends "false"`, `01_nodoc`, `zram-tools` (LZ4), `earlyoom`, and `50M` capped `journald`.
-- **Window & Desktop Layer**: **Openbox** (`_NET_WM_STRUT_PARTIAL`, edge resistance, tiling & workspace keybinds), `picom` (XRender), `Nemo` desktop icons with free positioning, and `feh` + Cairo dynamic wallpapers.
-- **Native Spotlight (`Super+Space`)**: Borderless streaming replies, per-message and per-code-block copy, external link routing to Chromium, live font scaling (`8–18px`), `@file` recursive search, `Gdk.DragAction.COPY` file drops, `Ctrl+V` image paste, and explicit confirmation guardrails for destructive prompts.
-- **Zero-Polling Schedules**: One-shot reminders run on in-memory `threading.Timer`; recurring and natural-language automations run on native Linux **`crontab`** (`run_cron.sh`) with pause/resume (`#PAUSED`), human-readable labels, and sticky `dunst` notifications.
-- **Daily Dev Tools**: `#health`, `#ports` (TCP + Podman), `#proj` (`~/Projetos`), `#grep`, `#clip` pinned snippets, `#keys`, `#displays`, **LiteMD** (`Ctrl+E` edit / `Ctrl+S` save), and **`aios-web`** Chromium CDP browser automation.
+Every component is chosen to maximize **responsiveness, predictability, and low resource usage** (~380–400 MB RAM at idle):
+
+| Layer | Choice | Why this decision |
+|---|---|---|
+| **OS Base** | **Debian 13 Netinst** + `APT::Install-Recommends "false"` + `01_nodoc` | Surgical control over disk footprint: zero bloat packages, zero heavy docs/manpages, direct boot on `tty1` into graphical session. |
+| **Memory & Stability** | `zram-tools` (LZ4) + `earlyoom` + capped `journald` (`50M`) | Keeps VMs and low-RAM laptops snappy, preventing OOM freezes and silent log growth. |
+| **Window Manager** | **Openbox** + `picom` (XRender) + `_NET_WM_STRUT_PARTIAL` | Ultra-lightweight XML configuration (`rc.xml`), keyboard tiling, edge resistance protecting the top bar, and smooth transparency without 3D acceleration. |
+| **Desktop Environment** | **Nemo** (`nemo-desktop`) + `feh` + `Papirus-Dark` | Real Desktop icons with free positioning (`gvfsd-metadata`) and fluid drag-and-drop into Spotlight; `feh` paints the X11 root window with the dynamic Cairo wallpaper. |
+| **Primary Interface** | **GTK3 + WebKit2GTK** (`spotlight_ui.py`) | Instead of Electron or browser tabs, a native bottom-docked transparent bar (`720px`) with WebKit2 Markdown streaming and zero startup latency. |
+| **Abstracted AI Engine** | **FastAPI** (`127.0.0.1:8765`) + CLI Agent Wrapper | Users interact solely with **AI-OS** (*Fast / Deep / Plan Only* profiles, Google login, streaming, guardrails). The underlying CLI engine stays encapsulated so models can evolve without changing UX. |
+| **Automations & Reminders** | **Native `crontab`** + `threading.Timer` (**Zero Polling**) | Instead of Python loops polling disk every few seconds, one-shot reminders use in-memory timers and recurring jobs use Linux `cron` — near-zero idle CPU usage. |
+| **Docs Reader & Editor** | **LiteMD** (`litemd.py`) | Single lightweight utility (`GTK3 + WebKit2`) registered as default for Markdown and plain text, toggling instantly between styled reading and editing (`Ctrl+E` / `Ctrl+S`). |
+| **Browser & Web Automation** | **Chromium** with CDP (`127.0.0.1:9222`) + `aios-web` | Lets the assistant open pages, inspect DOM (including `iframes` and Shadow DOM), fill forms, and capture screenshots in the user's real browser. |
+| **Tool Isolation** | **Podman Rootless** + `ufw` + `i3lock` | Services and MCP servers run isolated without polluting the host; firewall and instant screen lock are enabled out of the box. |
+
+---
+
+### 2. System Gallery
+
+| Desktop & Spotlight | OS Health (`#health`) |
+| :---: | :---: |
+| ![Desktop](docs/screenshots/desktop.png) | ![Spotlight Health](docs/screenshots/spotlight-health.png) |
+
+| Control Panel (Hover) | Bell: Notifications & Automations |
+| :---: | :---: |
+| ![Control Popover](docs/screenshots/control-popover.png) | ![Bell Popover](docs/screenshots/bell-popover.png) |
+
+| AI-OS Settings (`#settings`) | LiteMD (Markdown Reader & Editor) |
+| :---: | :---: |
+| ![Settings](docs/screenshots/settings.png) | ![LiteMD](docs/screenshots/litemd.png) |
+
+---
+
+### 3. Complete Feature Guide
+
+#### Spotlight & AI Chat
+- **Universal Launcher**: Simultaneous search across installed apps, quick system actions, projects in `~/Projetos`, and deep file search (`~/Desktop`, `~/Documentos`, `~/Projetos`, `~/Downloads`).
+- **Streaming Chat**:
+  - Full-width rendered replies (no nested borders), pulsing live indicator during tool execution, and `■` stop button at any time.
+  - `Copy` button per reply and per code block; external links open directly in **Chromium** and local `.md` files open in **LiteMD**.
+  - Quick toolbar: **`New chat`** (2.5s temporary placeholder feedback), **`A-` / `A+`** (8–18px live-synced with Settings), and **`Open in LiteMD`**.
+  - Auto-collapses on outside click or `Escape`, preserving the conversation under the `▲` toggle (`Ctrl+H` opens saved chat history).
+- **Multimodal Attachments**:
+  - **`@files`**: recursive autocomplete when typing `@`.
+  - **Drag & Drop**: drag files from Desktop or Nemo into the bar to attach as `@path` without moving originals.
+  - **`Ctrl+V` Image / `Print`**: paste screenshots directly into prompts for visual analysis.
+- **Safety Guardrail**: destructive prompts (`rm -rf`, disk formatting, package removal, `reboot`/`poweroff`, critical permission/service changes) require explicit confirmation via a safe modal (default focus on *Cancel*) plus API-level blocking.
+
+#### Top Bar (`AITopBar`) & Hover Popovers
+- **Workspaces (`1–4`) & Open Windows**: switch by click, shortcut, or mouse scroll; left **AI-OS** menu lists open windows per workspace with quick focus and **`×`** close button.
+- **Bell (Notifications & Automations)**:
+  - Top bar badge shows only **notification** count.
+  - Two-tab popover: **Notifications** (history + **`DND`** toggle wired to `dunstctl` + *Clear*) and **Automations** (reminders and crons in human-readable labels like `Every day at 09:00`, with **Pause/Resume** and **Remove**).
+- **Control Panel (Hardware & System)**:
+  - **Audio & Display**: volume (`wpctl`) and brightness (`brightnessctl`/`xrandr`) sliders plus audio sink selector.
+  - **Connections**: Wi-Fi (`nmcli`) and Bluetooth (`bluetoothctl`).
+  - **System**: `xrandr` display resolution picker, screen lock (`i3lock`), reboot, shutdown, Podman/keyboard status, plus **Date/Time & Timezone** configuration.
+
+#### Automations (`cron`) & Reminders
+- **Command (`#remind`)**: `#remind 10m Break` (supports `s`, `m`, `h`) or `#reminders` / `#crons` to list and manage.
+- **Natural Language in Chat**: simply ask *"every day at 09:00 check X"* or *"in 3 minutes open site Y and save a summary to Desktop"*. The system creates the `crontab` entry (`run_cron.sh`), keeps the main chat clean (ephemeral session auto-reset), and delivers sticky notifications until dismissed.
+
+#### Quick System Commands (`#`) & Assistant (`/`)
+
+| Command | Function |
+|---|---|
+| `#health` | Live status of `server.py`, `nemo-desktop`, `dunst`, `picom`, `cron`, `/` disk & RAM |
+| `#ports` | Lists listening TCP ports and **Podman** containers with safe stop action |
+| `#proj` | Lists projects in `~/Projetos` (with Git branch) and opens Terminal inside folder |
+| `#grep <term>` | Searches text inside files across `~/Documentos`, `~/Desktop`, and `~/Projetos` |
+| `#clip` | Clipboard history with **pinned Snippets (`[Pin]`)** |
+| `#keys` | Quick cheatsheet of all keyboard and mouse shortcuts |
+| `#displays` | Graphical monitor & resolution switcher (`xrandr`) |
+| `#settings` | Centered Settings window (AI Profiles, Session/Usage, Font, Language, Keyboard, System) |
+| `#audit` / `#notif` | AI action audit log and notification history |
+| `#apps` / `#chats` | Full installed apps list / Saved conversations (`Ctrl+H`) |
+| `#lang` / `#kb` / `#tz` | Switch language (`pt`/`en`), keyboard (`pt`/`us`/`es`/`fr`/`gb`), or timezone |
+| `#update` / `#lock` | Validated update with atomic rollback (`update.sh`) / Screen lock (`i3lock`) |
+| `/model`, `/mode`, `/usage` | Model selector, execution mode (`auto`, `accept-edits`, `plan`), and usage |
+
+#### Keyboard & Mouse Shortcuts
+
+| Shortcut | Action |
+|---|---|
+| `Super+Space` / `Alt+Space` | Focus Spotlight |
+| `Super+T` | Open Terminal (`xterm`) |
+| `Super+L` | Lock screen (`i3lock`) |
+| `Super+1..4` | Switch Workspace |
+| `Super+Shift+1..4` | Move active window to Workspace and follow |
+| `Super+← / → / ↑ / ↓` | Snap left/right or maximize window |
+| `Alt+Drag` / `Alt+F4` | Move or close any window |
+| `Print` / `Super+Shift+S` | Capture screenshot attached to Spotlight |
+| `Ctrl+H` / `Ctrl+V` | Chat history / Paste image into prompt |
+| `XF86Audio*` / `XF86MonBrightness*` | Volume and brightness with persistent OSD (`dunst`) |
+
+---
+
+### 4. Structure, Installation & Live ISO Build
+
+```text
+├── .github/workflows/
+│   └── build-iso.yml        # GitHub Actions: build amd64 ISO + Release
+├── build-live-iso.sh        # Builds hybrid Live + Installer ISO (amd64, zero credentials)
+├── build-iso.sh             # Builds unattended Debian Netinst ISO (preseed)
+├── preseed.cfg              # Unattended Debian Netinst configuration
+├── install-aios.sh          # Full system provisioning script
+├── AGENTS.md                # Agent constitution, rules, and tools
+├── config/
+│   ├── openbox/             # autostart, rc.xml, themerc
+│   ├── dunstrc              # Persistent notifications (timeout=0 critical)
+│   ├── picom.conf           # Lightweight XRender compositor
+│   ├── litemd.desktop       # MIME associations for Markdown & Plain Text
+│   ├── aios-cdp             # Chromium CDP flags (127.0.0.1:9222)
+│   └── 01_nodoc, 99norecommends
+├── spotlight/
+│   ├── spotlight_ui.py      # TopBar, Popovers, Settings, Spotlight GTK3+WebKit2
+│   ├── server.py            # FastAPI backend (127.0.0.1:8765), streaming, crons, ports
+│   ├── i18n.py              # PT-PT/EN localization, guardrails & human_cron()
+│   ├── litemd.py            # Markdown/Text Reader & Editor GTK3+WebKit2
+│   ├── web_agent.py         # aios-web CLI via Chromium CDP
+│   ├── wallpaper.py         # Dynamic Cairo wallpaper + feh + gsettings
+│   ├── gestures.py          # Touchpad gestures (libinput)
+│   ├── run_cron.sh          # Crontab automation runner
+│   └── lock.sh, screenshot.sh, update.sh
+└── tests/
+    └── test_smoke.py        # unittest suite (compile, shell, XML, i18n, guardrails, cron)
+```
 
 ```bash
+# Provision on a clean Debian 12/13 machine:
 git clone https://github.com/casousavng/aios-debian.git
 cd aios-debian && bash install-aios.sh
+
+# Run test suite:
 python3 -m unittest discover -s tests -v
+
+# Build a shareable Live + Installer amd64 ISO (inside Debian Trixie):
+sudo bash build-live-iso.sh
 ```
