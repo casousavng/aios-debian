@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=LiteMD
+GenericName=Markdown & Text Editor
+Comment=Lightweight Markdown reader and text editor for AI-OS
+Exec=/opt/ai-os/spotlight/litemd.py %f
+Icon=accessories-text-editor
+Terminal=false
+Categories=Utility;TextEditor;
+MimeType=text/markdown;text/x-markdown;text/plain;application/x-zerosize;
+StartupNotify=false

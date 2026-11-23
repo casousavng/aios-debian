@@ -90,10 +90,10 @@ Exec=litemd %f
 Icon=text-x-generic
 Terminal=false
 Type=Application
-MimeType=text/markdown;text/x-markdown;
-Categories=Utility;Office;
+MimeType=text/markdown;text/x-markdown;text/plain;application/x-zerosize;
+Categories=Utility;TextEditor;Office;
 EOF
-xdg-mime default litemd.desktop text/markdown text/x-markdown
+xdg-mime default litemd.desktop text/markdown text/x-markdown text/plain application/x-zerosize
 xdg-mime default gpicview.desktop image/png image/jpeg image/gif image/webp image/bmp
 
 echo "=== [5/6] Configurar serviço systemd (user) para o backend do Spotlight ==="

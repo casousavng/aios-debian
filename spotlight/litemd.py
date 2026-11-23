@@ -217,7 +217,10 @@ class LiteMDWindow(Gtk.Window):
     def load_file(self, path: Path):
         self.file_path = path
         try:
-            self.load_markdown(path.read_text(encoding="utf-8"))
+            txt = path.read_text(encoding="utf-8", errors="replace")
+            self.load_markdown(txt)
+            is_md = path.suffix.lower() in (".md", ".markdown")
+            self.mode_btn.set_active(not is_md)
         except Exception as e:
             self.load_markdown(f"# Erro ao abrir ficheiro\n\n`{html.escape(str(e))}`")
 
