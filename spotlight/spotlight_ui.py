@@ -2168,7 +2168,9 @@ class SpotlightWindow(Gtk.Window):
         return False
 
     def on_focus_out(self, *_):
-        if not self.get_query_text().strip() and not self.reply_box.is_visible():
+        if self.reply_box.is_visible() or self.list_scroll.is_visible() or self.draft_box.is_visible():
+            self.hide_results()
+        if not self.get_query_text().strip():
             self.set_opacity(0.80)
         return False
 
