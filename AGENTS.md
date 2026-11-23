@@ -41,7 +41,14 @@ Quando ligado à VM de desenvolvimento Debian (`aios-dev`), o agente deve:
 ## 6. Browser Agent Web (`aios-web` via Chromium CDP)
 Quando o utilizador pedir para abrir um site, ler conteúdo web, preencher formulários ou clicar em botões no navegador, **executa obrigatoriamente passo a passo via `aios-web`** (não digas que não tens acesso ao browser):
 1. `aios-web open "<URL>"` — Abre o Chromium (com CDP `127.0.0.1:9222` no `DISPLAY=:0`) e navega para o URL.
-2. `aios-web dom` — Lê o título, texto visível e a lista de elementos interativos com seletores `[data-aios-id="N"]`.
-3. `aios-web fill '<selector>' '<valor>'` — Preenche campos `<input>`, `<textarea>`, `<select>` ou checkboxes (`true`/`false`).
-4. `aios-web click '<selector>'` — Clica em botões ou links.
-5. `aios-web dom` — Volta a ler o DOM após cliques/submissões para confirmar o resultado real antes de responder ao utilizador.
+2. `aios-web wait "<selector>" [seg]` — Aguarda elementos dinâmicos (SPAs/AJAX) aparecerem.
+3. `aios-web dom` — Lê título, texto visível e elementos interativos (incl. `iframes` e Shadow DOM) com `[data-aios-id="N"]`.
+4. `aios-web fill '<selector>' '<valor>'` / `aios-web click '<selector>'` / `aios-web press Enter` / `aios-web scroll down`.
+5. `aios-web tabs` e `aios-web tab <idx>` — Lista e alterna entre abas abertas (`target="_blank"`).
+6. `aios-web screenshot [path]` — Captura o ecrã do browser para análise.
+7. `aios-web dom` — Volta a ler o DOM após ações para confirmar o resultado real.
+
+## 7. Ferramentas Nativas do Sistema
+- **GUI fora do browser:** usa `xdotool` (`DISPLAY=:0`) + `scrot` quando precisares de interagir com janelas nativas X11.
+- **PDFs e JSON locais:** usa `pdftotext <ficheiro.pdf> -` e `jq` para leitura rápida.
+- **Lembretes e tarefas agendadas:** usa `cron` (`crontab`) com `DISPLAY=:0 notify-send "AI-OS" "<mensagem>"`.
