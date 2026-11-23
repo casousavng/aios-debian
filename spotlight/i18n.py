@@ -137,6 +137,10 @@ STRINGS = {
         "slash_reminders": "Ver e gerir lembretes e crons ativos",
         "reminders_empty": "Sem lembretes nem automações cron ativas.",
         "reminder_deleted": "Agendamento removido.",
+        "bell_tip": "Lembretes, crons e notificações",
+        "bell_sched_hdr": "Lembretes & Crons",
+        "bell_notif_hdr": "Notificações recentes",
+        "bell_clear": "Limpar",
     },
     "en": {
         "placeholder": "Ask anything, / for AI, # for system...",
@@ -268,6 +272,10 @@ STRINGS = {
         "slash_reminders": "View and manage active reminders & crons",
         "reminders_empty": "No active reminders or cron automations.",
         "reminder_deleted": "Schedule removed.",
+        "bell_tip": "Reminders, crons & notifications",
+        "bell_sched_hdr": "Reminders & Crons",
+        "bell_notif_hdr": "Recent notifications",
+        "bell_clear": "Clear",
     },
 }
 

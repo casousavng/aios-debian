@@ -546,6 +546,140 @@ class WindowsPopover(Gtk.Window):
         self.show_all()
 
 
+class RemindersPopover(Gtk.Window):
+    def __init__(self):
+        super().__init__(type=Gtk.WindowType.POPUP)
+        self.set_decorated(False)
+        self.set_keep_above(True)
+        self.set_app_paintable(True)
+        screen = self.get_screen()
+        visual = screen.get_rgba_visual()
+        if visual and screen.is_composited():
+            self.set_visual(visual)
+        self.connect("draw", clear_transparent)
+
+        self.card = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        self.card.get_style_context().add_class("popover-card")
+        self.card.set_size_request(310, -1)
+        self.add(self.card)
+
+        self.sched_hdr = Gtk.Label(label=t("bell_sched_hdr"), xalign=0)
+        self.sched_hdr.get_style_context().add_class("pop-title")
+        self.card.pack_start(self.sched_hdr, False, False, 0)
+
+        self.sched_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
+        self.card.pack_start(self.sched_box, False, False, 0)
+
+        div = Gtk.Box()
+        div.get_style_context().add_class("divider")
+        self.card.pack_start(div, False, False, 0)
+
+        nhdr_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+        self.notif_hdr = Gtk.Label(label=t("bell_notif_hdr"), xalign=0)
+        self.notif_hdr.get_style_context().add_class("pop-title")
+        self.clear_btn = Gtk.Button(label=t("bell_clear"))
+        self.clear_btn.get_style_context().add_class("reply-btn")
+        self.clear_btn.connect("clicked", self._clear_notifs)
+        nhdr_row.pack_start(self.notif_hdr, True, True, 0)
+        nhdr_row.pack_end(self.clear_btn, False, False, 0)
+        self.card.pack_start(nhdr_row, False, False, 0)
+
+        self.notif_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=3)
+        self.card.pack_start(self.notif_box, False, False, 0)
+
+    def refresh_labels(self):
+        self.sched_hdr.set_text(t("bell_sched_hdr"))
+        self.notif_hdr.set_text(t("bell_notif_hdr"))
+        self.clear_btn.set_label(t("bell_clear"))
+
+    def toggle_at(self, geom):
+        if self.is_visible():
+            self.hide()
+            return
+        self.refresh_labels()
+        self.move(geom.x + geom.width - 324, geom.y + 34)
+        self.show_all()
+        self._load_async()
+
+    def _clear_notifs(self, *_):
+        def _w():
+            try:
+                req = urllib.request.Request(f"{API_BASE}/api/notifications", method="DELETE")
+                urllib.request.urlopen(req, timeout=2).read()
+            except Exception:
+                pass
+            GLib.idle_add(self._load_async)
+        threading.Thread(target=_w, daemon=True).start()
+
+    def _delete_sched(self, kind, sid):
+        ep = "reminders" if kind == "rem" else "crons"
+        def _w():
+            try:
+                req = urllib.request.Request(f"{API_BASE}/api/{ep}/{sid}", method="DELETE")
+                urllib.request.urlopen(req, timeout=2).read()
+            except Exception:
+                pass
+            GLib.idle_add(self._load_async)
+        threading.Thread(target=_w, daemon=True).start()
+
+    def _load_async(self):
+        def _fetch():
+            rems, crons, notifs = [], [], []
+            for ep, target in [("reminders", rems), ("crons", crons), ("notifications", notifs)]:
+                try:
+                    with urllib.request.urlopen(f"{API_BASE}/api/{ep}", timeout=2) as r:
+                        target.extend(json.loads(r.read().decode()))
+                except Exception:
+                    pass
+            def _apply():
+                if not self.is_visible():
+                    return False
+                for c in self.sched_box.get_children():
+                    self.sched_box.remove(c)
+                if not rems and not crons:
+                    lbl = Gtk.Label(label=t("reminders_empty"), xalign=0)
+                    lbl.get_style_context().add_class("pop-sub")
+                    self.sched_box.add(lbl)
+                for it in rems[:5]:
+                    row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=4)
+                    lbl = Gtk.Label(label=f"⏰ {it.get('message', '')[:32]}", xalign=0)
+                    lbl.get_style_context().add_class("pop-sub")
+                    xb = Gtk.Button(label="✕")
+                    xb.get_style_context().add_class("reply-btn")
+                    xb.connect("clicked", lambda _, sid=it.get("id"): self._delete_sched("rem", sid))
+                    row.pack_start(lbl, True, True, 0)
+                    row.pack_end(xb, False, False, 0)
+                    self.sched_box.add(row)
+                for it in crons[:5]:
+                    row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=4)
+                    lbl = Gtk.Label(label=f"🔄 [{it.get('schedule')}] {it.get('label', '')[:22]}", xalign=0)
+                    lbl.get_style_context().add_class("pop-sub")
+                    xb = Gtk.Button(label="✕")
+                    xb.get_style_context().add_class("reply-btn")
+                    xb.connect("clicked", lambda _, sid=it.get("id"): self._delete_sched("cron", sid))
+                    row.pack_start(lbl, True, True, 0)
+                    row.pack_end(xb, False, False, 0)
+                    self.sched_box.add(row)
+                self.sched_box.show_all()
+
+                for c in self.notif_box.get_children():
+                    self.notif_box.remove(c)
+                if not notifs:
+                    lbl = Gtk.Label(label=t("notif_empty"), xalign=0)
+                    lbl.get_style_context().add_class("pop-sub")
+                    self.notif_box.add(lbl)
+                else:
+                    for line in reversed(notifs[-5:]):
+                        short = line.split(" | ", 1)[-1] if " | " in line else line
+                        lbl = Gtk.Label(label=short[:42], xalign=0)
+                        lbl.get_style_context().add_class("pop-sub")
+                        self.notif_box.add(lbl)
+                self.notif_box.show_all()
+                return False
+            GLib.idle_add(_apply)
+        threading.Thread(target=_fetch, daemon=True).start()
+
+
 class ControlPopover(Gtk.Window):
     def __init__(self):
         super().__init__(type=Gtk.WindowType.POPUP)
@@ -1191,23 +1325,27 @@ class TopBarWindow(Gtk.Window):
         self._last_windows = None
 
         self.popover = ControlPopover()
+        self.rem_popover = RemindersPopover()
 
         status_btn = Gtk.Button()
         status_btn.set_can_focus(False)
         status_btn.get_style_context().add_class("status-trigger")
-        status_btn.connect("clicked", lambda *_: self.popover.toggle_at(geom))
+        status_btn.connect("clicked", lambda *_: (self.rem_popover.hide(), self.popover.toggle_at(geom)))
         status_inner = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
         status_btn.add(status_inner)
         bar.pack_end(status_btn, False, False, 0)
 
-        self.lang_btn = Gtk.Button(label=get_lang().upper())
-        self.lang_btn.set_can_focus(False)
-        self.lang_btn.set_valign(Gtk.Align.CENTER)
-        self.lang_btn.get_style_context().add_class("win-dot")
-        self.lang_btn.set_tooltip_text("PT-PT / EN")
+        self.bell_btn = Gtk.Button()
+        bell_ico = Gtk.Image.new_from_icon_name("preferences-system-notifications-symbolic", Gtk.IconSize.MENU)
+        bell_ico.set_pixel_size(14)
+        self.bell_btn.add(bell_ico)
+        self.bell_btn.set_can_focus(False)
+        self.bell_btn.set_valign(Gtk.Align.CENTER)
+        self.bell_btn.get_style_context().add_class("win-dot")
+        self.bell_btn.set_tooltip_text(t("bell_tip"))
         self.on_lang_changed = None
-        self.lang_btn.connect("clicked", self._toggle_lang)
-        bar.pack_end(self.lang_btn, False, False, 0)
+        self.bell_btn.connect("clicked", lambda *_: (self.popover.hide(), self.rem_popover.toggle_at(geom)))
+        bar.pack_end(self.bell_btn, False, False, 0)
 
         self.clock_lbl = Gtk.Label(label="--:--")
         self.clock_lbl.get_style_context().add_class("topbar-item")
@@ -1384,17 +1522,9 @@ class TopBarWindow(Gtk.Window):
         dlg.destroy()
         return resp == Gtk.ResponseType.OK
 
-    def _toggle_lang(self, *_):
-        if not self._confirm_lang_switch():
-            return
-        nxt = "en" if get_lang() == "pt" else "pt"
-        set_lang(nxt)
-        self.apply_lang()
-        if self.on_lang_changed:
-            self.on_lang_changed()
-
     def apply_lang(self):
-        self.lang_btn.set_label(get_lang().upper())
+        self.bell_btn.set_tooltip_text(t("bell_tip"))
+        self.rem_popover.refresh_labels()
         self.popover.refresh_labels()
         if self.win_popover.is_visible():
             self.win_popover.hide()
