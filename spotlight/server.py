@@ -433,8 +433,22 @@ def ask(req: PromptRequest):
 
     with chat_file.open("a", encoding="utf-8") as f:
         f.write(f"\n### AI-OS\n{reply}\n")
+    _write_audit(req.prompt, [], "ok" if agent_bin else "no-agent")
 
     return {"chat_id": chat_id, "reply": reply}
+
+
+def _write_audit(prompt: str, tools: list, status: str):
+    try:
+        audit_file = HOME / ".ai-os" / "audit.log"
+        audit_file.parent.mkdir(parents=True, exist_ok=True)
+        ts = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        one_line = " ".join(prompt.split())[:140]
+        t_str = ",".join(dict.fromkeys(tools)) if tools else "-"
+        with audit_file.open("a", encoding="utf-8") as af:
+            af.write(f"{ts} | {status} | {t_str} | {one_line}\n")
+    except Exception:
+        pass
 
 
 @app.post("/api/ask_stream")
@@ -482,6 +496,7 @@ def ask_stream(req: PromptRequest):
         )
         full_reply = []
         final_text = ""
+        used_tools = []
         for raw_line in proc.stdout:
             raw_line = raw_line.strip()
             if not raw_line:
@@ -500,15 +515,19 @@ def ask_stream(req: PromptRequest):
                     yield json.dumps({"delta": delta, "done": False}) + "\n"
                 elif stype and stype not in ("user_input", "agent_response") and not full_reply:
                     tool_name = su.get("tool_name") or stype
+                    used_tools.append(tool_name)
                     yield json.dumps({"status": tool_name, "done": False}) + "\n"
+                elif su.get("tool_name"):
+                    used_tools.append(su.get("tool_name"))
             elif etype == "result":
                 final_text = ev.get("result", {}).get("response", "").strip()
 
-        proc.wait()
+        rc = proc.wait()
         reply = final_text or "".join(full_reply).strip() or proc.stderr.read().strip() or "Concluído."
         with chat_file.open("a", encoding="utf-8") as f:
             f.write(f"\n### AI-OS\n{reply}\n")
         (LOGS_DIR / "last_action.log").write_text(reply, encoding="utf-8")
+        _write_audit(req.prompt, used_tools, f"rc={rc}")
         yield json.dumps({"chat_id": chat_id, "reply": reply, "done": True}) + "\n"
 
     return StreamingResponse(_stream(), media_type="application/x-ndjson")

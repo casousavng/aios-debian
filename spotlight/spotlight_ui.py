@@ -326,6 +326,7 @@ def get_slash_commands():
 def get_system_commands():
     return [
         ("#chats", t("slash_chats"), "local:chats"),
+        ("#audit", t("slash_audit"), "local:audit"),
         ("#clip", t("slash_clip"), "local:clip"),
         ("#screenshot", t("slash_screenshot"), "local:screenshot"),
         ("#displays", t("slash_displays"), "local:displays"),
@@ -1187,6 +1188,7 @@ class SpotlightWindow(Gtk.Window):
         self.refresh_status()
         GLib.timeout_add_seconds(10, self.refresh_status)
         GLib.timeout_add_seconds(600, self.refresh_wallpaper)
+        GLib.timeout_add(1500, self._check_oobe)
 
     def apply_lang(self):
         self.placeholder_lbl.set_text(t("placeholder"))
@@ -1248,6 +1250,39 @@ class SpotlightWindow(Gtk.Window):
     def refresh_wallpaper(self):
         subprocess.Popen(["python3", "/opt/ai-os/spotlight/wallpaper.py"])
         return True
+
+    def _check_oobe(self):
+        def _w():
+            try:
+                res = json.loads(urllib.request.urlopen(f"{API_BASE}/api/agy/auth/status", timeout=3).read().decode())
+                if res.get("installed") and not res.get("authenticated"):
+                    GLib.idle_add(self._show_oobe_dialog)
+            except Exception:
+                pass
+        threading.Thread(target=_w, daemon=True).start()
+        return False
+
+    def _show_oobe_dialog(self):
+        dlg = Gtk.Dialog(title=t("oobe_title"), flags=0)
+        dlg.set_position(Gtk.WindowPosition.CENTER_ALWAYS)
+        dlg.set_keep_above(True)
+        box = dlg.get_content_area()
+        box.set_spacing(10)
+        box.set_border_width(14)
+        lbl = Gtk.Label(label=t("oobe_msg"), xalign=0)
+        box.add(lbl)
+        lang_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        for code, name in (("pt", "Português (PT-PT)"), ("en", "English (EN)")):
+            b = Gtk.Button(label=name)
+            b.connect("clicked", lambda _, c=code: (set_lang(c), self.topbar and self.topbar.apply_lang(), self.apply_lang(), lbl.set_text(t("oobe_msg"))))
+            lang_row.pack_start(b, True, True, 0)
+        box.add(lang_row)
+        dlg.add_buttons(t("oobe_later"), Gtk.ResponseType.CANCEL, t("oobe_login"), Gtk.ResponseType.OK)
+        dlg.show_all()
+        resp = dlg.run()
+        dlg.destroy()
+        if resp == Gtk.ResponseType.OK:
+            self.start_agy_login()
 
     def hide_results(self):
         self.divider.hide()
@@ -1714,6 +1749,15 @@ class SpotlightWindow(Gtk.Window):
             if payload == "local:chats":
                 self.clear_query()
                 self.show_chats_history()
+            elif payload == "local:audit":
+                self.clear_query()
+                self.hide_results()
+                af = HOME / ".ai-os" / "audit.log"
+                if not af.exists():
+                    self.show_reply(t("audit_empty"))
+                else:
+                    lines = af.read_text(encoding="utf-8", errors="ignore").splitlines()[-15:]
+                    self.show_reply("```text\n" + "\n".join(reversed(lines)) + "\n```")
             elif payload == "local:clip":
                 self.clear_query()
                 self.show_clip_history()
