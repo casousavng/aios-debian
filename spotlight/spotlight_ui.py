@@ -347,7 +347,7 @@ button.reply-btn:hover {
     font-size: 13px;
 }
 scale {
-    padding: 3px 2px;
+    padding: 6px 8px;
 }
 scale trough {
     background-color: rgba(255, 255, 255, 0.14);
@@ -368,7 +368,7 @@ scale slider {
     border-radius: 999px;
     min-width: 12px;
     min-height: 12px;
-    margin: -4px 0;
+    margin: -5px 0;
     box-shadow: none;
 }
 """
