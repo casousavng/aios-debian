@@ -128,7 +128,7 @@ button.status-trigger:hover, button.status-trigger:active {
 }
 .spotlight-card {
     background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.16) 0%, rgba(20, 26, 34, 0.08) 100%);
-    background-color: rgba(20, 26, 34, 0.74);
+    background-color: rgba(20, 26, 34, 0.90);
     border: 1px solid rgba(255, 255, 255, 0.30);
     border-radius: 22px;
     padding: 8px 16px;
@@ -1117,11 +1117,10 @@ class SpotlightWindow(Gtk.Window):
         self.entry_scroll.set_shadow_type(Gtk.ShadowType.NONE)
         self.entry_scroll.get_style_context().add_class("clean-scroll")
         self.entry_scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.EXTERNAL)
-        self.entry_scroll.set_min_content_height(22)
-        self.entry_scroll.set_max_content_height(24)
-        self.entry_scroll.set_size_request(-1, 24)
+        self.entry_scroll.set_min_content_height(24)
+        self.entry_scroll.set_max_content_height(96)
         self.entry_scroll.set_vexpand(False)
-        self.entry_scroll.set_propagate_natural_height(False)
+        self.entry_scroll.set_propagate_natural_height(True)
         self.entry_scroll.set_valign(Gtk.Align.CENTER)
 
         self.entry = Gtk.TextView()
@@ -1136,7 +1135,6 @@ class SpotlightWindow(Gtk.Window):
         self.entry_scroll.add(self.entry)
 
         overlay = Gtk.Overlay()
-        overlay.set_size_request(-1, 24)
         overlay.add(self.entry_scroll)
         self.placeholder_lbl = Gtk.Label(label=t("placeholder"), xalign=0)
         self.placeholder_lbl.get_style_context().add_class("search-placeholder")
@@ -1933,6 +1931,7 @@ class SpotlightWindow(Gtk.Window):
 
         self._cancelled = False
         self._save_history(prompt)
+        self.clear_query()
         self.show_reply(t("processing"))
         self._set_busy(True)
 
