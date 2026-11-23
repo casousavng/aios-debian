@@ -1131,7 +1131,7 @@ class SpotlightWindow(Gtk.Window):
         self.entry_scroll.set_max_content_height(150)
         self.entry_scroll.set_vexpand(False)
         self.entry_scroll.set_propagate_natural_height(True)
-        self.entry_scroll.set_valign(Gtk.Align.END)
+        self.entry_scroll.set_valign(Gtk.Align.CENTER)
 
         self.entry = Gtk.TextView()
         self.entry.set_wrap_mode(Gtk.WrapMode.WORD_CHAR)
@@ -1147,6 +1147,7 @@ class SpotlightWindow(Gtk.Window):
         overlay = Gtk.Overlay()
         overlay.add(self.entry_scroll)
         self.placeholder_lbl = Gtk.Label(label=t("placeholder"), xalign=0)
+        self.placeholder_lbl.set_valign(Gtk.Align.CENTER)
         self.placeholder_lbl.get_style_context().add_class("search-placeholder")
         self.placeholder_lbl.set_no_show_all(True)
         self.placeholder_lbl.show()
