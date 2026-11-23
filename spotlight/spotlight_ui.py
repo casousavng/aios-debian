@@ -26,7 +26,9 @@ REPLY_HTML = """<!DOCTYPE html>
   html, body { background: transparent; margin: 0; padding: 0; color: #f1f5f9;
     font-family: system-ui, -apple-system, sans-serif; font-size: 13px; line-height: 1.5;
     overflow-wrap: anywhere; word-break: break-word; max-width: 100%; overflow-x: hidden; }
-  body { padding: 4px 10px 16px 6px; }
+  body { padding: 4px 10px 6px 6px; }
+  p:first-child { margin-top: 0; }
+  p:last-child { margin-bottom: 0; }
   ::-webkit-scrollbar { width: 6px; }
   ::-webkit-scrollbar-track { background: transparent; }
   ::-webkit-scrollbar-thumb { background: rgba(148, 163, 184, 0.40); border-radius: 3px; }
@@ -642,7 +644,7 @@ class RemindersPopover(Gtk.Window):
                     self.sched_box.add(lbl)
                 for it in rems[:5]:
                     row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=4)
-                    lbl = Gtk.Label(label=f"⏰ {it.get('message', '')[:32]}", xalign=0)
+                    lbl = Gtk.Label(label=f"• {it.get('message', '')[:32]}", xalign=0)
                     lbl.get_style_context().add_class("pop-sub")
                     xb = Gtk.Button(label="✕")
                     xb.get_style_context().add_class("reply-btn")
@@ -652,7 +654,7 @@ class RemindersPopover(Gtk.Window):
                     self.sched_box.add(row)
                 for it in crons[:5]:
                     row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=4)
-                    lbl = Gtk.Label(label=f"🔄 [{it.get('schedule')}] {it.get('label', '')[:22]}", xalign=0)
+                    lbl = Gtk.Label(label=f"↻ [{it.get('schedule')}] {it.get('label', '')[:22]}", xalign=0)
                     lbl.get_style_context().add_class("pop-sub")
                     xb = Gtk.Button(label="✕")
                     xb.get_style_context().add_class("reply-btn")
@@ -1336,9 +1338,14 @@ class TopBarWindow(Gtk.Window):
         bar.pack_end(status_btn, False, False, 0)
 
         self.bell_btn = Gtk.Button()
+        bell_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=3)
         bell_ico = Gtk.Image.new_from_icon_name("notifications-symbolic", Gtk.IconSize.MENU)
         bell_ico.set_pixel_size(14)
-        self.bell_btn.add(bell_ico)
+        self.bell_lbl = Gtk.Label(label="")
+        self.bell_lbl.get_style_context().add_class("topbar-item")
+        bell_box.pack_start(bell_ico, False, False, 0)
+        bell_box.pack_start(self.bell_lbl, False, False, 0)
+        self.bell_btn.add(bell_box)
         self.bell_btn.set_can_focus(False)
         self.bell_btn.set_valign(Gtk.Align.CENTER)
         self.bell_btn.get_style_context().add_class("status-trigger")
@@ -1534,6 +1541,9 @@ class TopBarWindow(Gtk.Window):
         self.logo_lbl.set_text("✦ AI..." if busy else "◉")
 
     def update_status(self, data):
+        alerts = int(data.get("alerts", 0) or 0)
+        self.bell_lbl.set_text(str(alerts) if alerts > 0 else "")
+        self.bell_lbl.set_visible(alerts > 0)
         wifi = data.get("wifi", "N/D")
         bat = data.get("battery", "AC")
         now = data.get("time", "--:--")
@@ -1665,7 +1675,7 @@ class SpotlightWindow(Gtk.Window):
         self.reply_scroll.set_shadow_type(Gtk.ShadowType.NONE)
         self.reply_scroll.get_style_context().add_class("clean-scroll")
         self.reply_scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
-        self.reply_scroll.set_min_content_height(48)
+        self.reply_scroll.set_min_content_height(32)
         self.reply_scroll.set_max_content_height(440)
         self.reply_scroll.set_propagate_natural_height(True)
         self.reply_box.pack_start(self.reply_scroll, True, True, 0)
@@ -1957,7 +1967,7 @@ class SpotlightWindow(Gtk.Window):
             return
         self._reply_ready = True
         self._reply_loading = False
-        measure_js = "(() => { const r = document.createRange(); r.selectNodeContents(document.body); return Math.max(48, Math.ceil(r.getBoundingClientRect().height) + 22); })()"
+        measure_js = "(() => { const r = document.createRange(); r.selectNodeContents(document.body); return Math.max(32, Math.ceil(r.getBoundingClientRect().height) + 12); })()"
         pending = getattr(self, "_pending_reply_update", None)
         if pending:
             self._pending_reply_update = None
@@ -1974,7 +1984,7 @@ class SpotlightWindow(Gtk.Window):
         try:
             js_res = view.evaluate_javascript_finish(res)
             h = int(js_res.to_int32())
-            self.reply_scroll.set_min_content_height(max(48, min(h, 440)))
+            self.reply_scroll.set_min_content_height(max(32, min(h, 440)))
         except Exception:
             self.reply_scroll.set_min_content_height(140)
         self.resize(720, 1)
@@ -2073,7 +2083,7 @@ class SpotlightWindow(Gtk.Window):
         if not self.reply_box.is_visible():
             self.reply_box.show_all()
         if getattr(self, "_reply_ready", False):
-            js = f"document.body.style.fontSize='{fsize}px'; document.body.innerHTML = {json.dumps(body)}; window.scrollTo(0, document.body.scrollHeight); (() => {{ const r = document.createRange(); r.selectNodeContents(document.body); return Math.max(48, Math.ceil(r.getBoundingClientRect().height) + 22); }})();"
+            js = f"document.body.style.fontSize='{fsize}px'; document.body.innerHTML = {json.dumps(body)}; window.scrollTo(0, document.body.scrollHeight); (() => {{ const r = document.createRange(); r.selectNodeContents(document.body); return Math.max(32, Math.ceil(r.getBoundingClientRect().height) + 12); }})();"
             self.reply_view.evaluate_javascript(js, -1, None, None, None, self._on_reply_height, None)
         elif getattr(self, "_reply_loading", False):
             self._pending_reply_update = (fsize, body)
@@ -2508,13 +2518,13 @@ class SpotlightWindow(Gtk.Window):
         try:
             with urllib.request.urlopen(f"{API_BASE}/api/reminders", timeout=2) as r:
                 for it in json.loads(r.read().decode()):
-                    matches.append(("del_reminder", f"⏰ {it.get('message', '')}", f"Timer ({it.get('id')}) — Enter/Click to remove", "alarm-symbolic", it.get("id")))
+                    matches.append(("del_reminder", f"• {it.get('message', '')}", f"Timer ({it.get('id')}) — Enter/Click to remove", "alarm-symbolic", it.get("id")))
         except Exception:
             pass
         try:
             with urllib.request.urlopen(f"{API_BASE}/api/crons", timeout=2) as r:
                 for it in json.loads(r.read().decode()):
-                    matches.append(("del_cron", f"🔄 [{it.get('schedule')}] {it.get('label', '')}", f"Cron ({it.get('kind')}) — Enter/Click to remove", "preferences-system-time", it.get("id")))
+                    matches.append(("del_cron", f"↻ [{it.get('schedule')}] {it.get('label', '')}", f"Cron ({it.get('kind')}) — Enter/Click to remove", "preferences-system-time", it.get("id")))
         except Exception:
             pass
         if not matches:

@@ -15,6 +15,7 @@
     font = Sans 10
     format = "<b>%s</b>\n%b"
     timeout = 5
+    mouse_left_click = close_current
 
 [urgency_low]
     background = "#141922"
@@ -30,3 +31,4 @@
     background = "#1f151b"
     foreground = "#fecaca"
     frame_color = "#ef4444"
+    timeout = 0
