@@ -40,7 +40,10 @@ gtk-application-prefer-dark-theme=1
 EOF
 echo 'gtk-icon-theme-name="Papirus-Dark"' > "$HOME/.gtkrc-2.0"
 
-echo "=== [4/6] Instalar aplicação Spotlight ==="
+echo "=== [4/6] Instalar aplicação Spotlight e Antigravity CLI (agy) ==="
+if ! command -v agy >/dev/null 2>&1 && [ ! -x "$HOME/.local/bin/agy" ]; then
+  curl -fsSL https://antigravity.google/cli/install.sh | bash || true
+fi
 sudo mkdir -p /opt/ai-os/spotlight
 sudo cp spotlight/server.py spotlight/index.html spotlight/spotlight_ui.py spotlight/wallpaper.py spotlight/litemd.py spotlight/i18n.py /opt/ai-os/spotlight/
 sudo chmod +x /opt/ai-os/spotlight/spotlight_ui.py /opt/ai-os/spotlight/wallpaper.py /opt/ai-os/spotlight/litemd.py

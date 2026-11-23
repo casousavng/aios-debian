@@ -307,6 +307,8 @@ def get_slash_commands():
         ("/model ", t("slash_model"), "fill:/model "),
         ("/mode ", t("slash_mode"), "fill:/mode "),
         ("/lang ", t("slash_lang"), "fill:/lang "),
+        ("/login", t("slash_login"), "local:login"),
+        ("/logout", t("slash_logout"), "local:logout"),
         ("/lock", t("slash_lock"), "local:lock"),
         ("/models", t("slash_models"), "ask_now:/models"),
         ("/agents", t("slash_agents"), "ask_now:/agents"),
@@ -799,6 +801,7 @@ class SpotlightWindow(Gtk.Window):
         self.apps = load_desktop_apps()
         self.agy_models_cache = []
         self.current_chat_id = None
+        self.awaiting_auth_code = False
         self.last_reply_md = ""
         self.history = self._load_history()
         self.hist_idx = len(self.history)
@@ -1389,6 +1392,14 @@ class SpotlightWindow(Gtk.Window):
                 self.clear_query()
                 self.hide_results()
                 subprocess.Popen(["i3lock", "-c", "0f1117"])
+            elif payload == "local:login":
+                self.clear_query()
+                self.hide_results()
+                self.start_agy_login()
+            elif payload == "local:logout":
+                self.clear_query()
+                self.hide_results()
+                self.do_agy_logout()
             elif payload.startswith("ask_now:"):
                 cmd_txt = payload.split(":", 1)[1]
                 self.clear_query()
@@ -1417,6 +1428,56 @@ class SpotlightWindow(Gtk.Window):
             subprocess.Popen(["xdg-open", payload])
             self.clear_query()
             self.hide_results()
+
+    def start_agy_login(self):
+        self.show_reply(t("processing"))
+
+        def _worker():
+            try:
+                req = urllib.request.Request(f"{API_BASE}/api/agy/auth/login_start", data=b"{}", method="POST")
+                with urllib.request.urlopen(req, timeout=20) as r:
+                    res = json.loads(r.read().decode())
+                if res.get("ok"):
+                    self.awaiting_auth_code = True
+                    GLib.idle_add(self.show_reply, t("login_started"))
+                else:
+                    GLib.idle_add(self.show_reply, t("login_fail", err=res.get("error", "unknown")))
+            except Exception as e:
+                GLib.idle_add(self.show_reply, t("login_fail", err=e))
+
+        threading.Thread(target=_worker, daemon=True).start()
+
+    def submit_agy_code(self, code):
+        self.awaiting_auth_code = False
+        self.show_reply(t("processing"))
+
+        def _worker():
+            try:
+                req = urllib.request.Request(
+                    f"{API_BASE}/api/agy/auth/login_code",
+                    data=json.dumps({"code": code}).encode(),
+                    headers={"Content-Type": "application/json"},
+                    method="POST",
+                )
+                with urllib.request.urlopen(req, timeout=15) as r:
+                    res = json.loads(r.read().decode())
+                if res.get("ok"):
+                    GLib.idle_add(self.show_reply, t("login_ok"))
+                else:
+                    GLib.idle_add(self.show_reply, t("login_fail", err=res.get("error", "unknown")))
+            except Exception as e:
+                GLib.idle_add(self.show_reply, t("login_fail", err=e))
+
+        threading.Thread(target=_worker, daemon=True).start()
+
+    def do_agy_logout(self):
+        self.awaiting_auth_code = False
+        try:
+            req = urllib.request.Request(f"{API_BASE}/api/agy/auth/logout", data=b"{}", method="POST")
+            urllib.request.urlopen(req, timeout=5).read()
+            self.show_reply(t("logout_ok"))
+        except Exception as e:
+            self.show_reply(t("login_fail", err=e))
 
     def send_to_ai(self, prompt):
         if prompt.strip().startswith("/lang "):
@@ -1478,7 +1539,11 @@ class SpotlightWindow(Gtk.Window):
         else:
             text = self.get_query_text().strip()
             if text:
-                self.send_to_ai(text)
+                if self.awaiting_auth_code:
+                    self.clear_query()
+                    self.submit_agy_code(text)
+                else:
+                    self.send_to_ai(text)
 
     def on_row_activated(self, _, row):
         if row and self.results:

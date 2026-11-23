@@ -1,7 +1,11 @@
 #!/usr/bin/env python3
 import json
 import os
+import pty
+import re
+import select
 import subprocess
+import time
 import datetime
 from pathlib import Path
 from fastapi import FastAPI
@@ -68,6 +72,123 @@ def read_chat(chat_id: str):
 
 
 _MODELS_CACHE = None
+_AUTH_SESSION = {"pid": None, "fd": None}
+AGY_DIR = HOME / ".gemini" / "antigravity-cli"
+AGY_TOKEN = AGY_DIR / "antigravity-oauth-token"
+
+
+class AuthCodeRequest(BaseModel):
+    code: str
+
+
+@app.get("/api/agy/auth/status")
+def agy_auth_status():
+    env = os.environ.copy()
+    env["PATH"] = f"{HOME / '.local/bin'}:{env.get('PATH', '')}"
+    installed = subprocess.call(["which", "agy"], env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL) == 0
+    return {"installed": installed, "authenticated": AGY_TOKEN.exists()}
+
+
+@app.post("/api/agy/auth/login_start")
+def agy_auth_login_start():
+    # Clean previous pending auth session
+    if _AUTH_SESSION["pid"]:
+        try:
+            os.kill(_AUTH_SESSION["pid"], 9)
+        except OSError:
+            pass
+    if _AUTH_SESSION["fd"] is not None:
+        try:
+            os.close(_AUTH_SESSION["fd"])
+        except OSError:
+            pass
+
+    agy_bin = HOME / ".local" / "bin" / "agy"
+    if not agy_bin.exists():
+        return {"ok": False, "error": "agy binary not found"}
+
+    # Remove old token so agy prompts login flow
+    if AGY_TOKEN.exists():
+        AGY_TOKEN.unlink()
+
+    pid, fd = pty.fork()
+    if pid == 0:
+        os.execv(str(agy_bin), ["agy"])
+
+    _AUTH_SESSION["pid"] = pid
+    _AUTH_SESSION["fd"] = fd
+    buf = b""
+    sent_enter = False
+    start = time.time()
+    url = None
+    while time.time() - start < 15:
+        if not sent_enter and time.time() - start > 2.2:
+            os.write(fd, b"\r")
+            sent_enter = True
+        r, _, _ = select.select([fd], [], [], 0.25)
+        if fd in r:
+            try:
+                buf += os.read(fd, 4096)
+            except OSError:
+                break
+            text = re.sub(r"\x1b\[[0-9;?]*[A-Za-z]", "", buf.decode("utf-8", errors="ignore"))
+            m = re.search(r"─+\s*(https://accounts\.google\.com/.*?)─+", text, re.S)
+            if m:
+                url = re.sub(r"\s+", "", m.group(1))
+                break
+
+    if url:
+        env = os.environ.copy()
+        env.setdefault("DISPLAY", ":0")
+        subprocess.Popen(["chromium", url], env=env)
+        return {"ok": True, "url": url}
+    return {"ok": False, "error": "Could not obtain OAuth URL from agy"}
+
+
+@app.post("/api/agy/auth/login_code")
+def agy_auth_login_code(req: AuthCodeRequest):
+    fd = _AUTH_SESSION.get("fd")
+    pid = _AUTH_SESSION.get("pid")
+    if fd is None or not pid:
+        return {"ok": False, "error": "No active login session. Run /login first."}
+
+    os.write(fd, (req.code.strip() + "\r").encode())
+    end = time.time() + 10
+    while time.time() < end:
+        if AGY_TOKEN.exists():
+            break
+        time.sleep(0.3)
+
+    try:
+        os.kill(pid, 9)
+        os.close(fd)
+    except OSError:
+        pass
+    _AUTH_SESSION["pid"] = None
+    _AUTH_SESSION["fd"] = None
+
+    if AGY_TOKEN.exists():
+        cfg_path = AGY_DIR / "settings.json"
+        if not cfg_path.exists():
+            cfg_path.write_text(json.dumps({
+                "agentMode": "auto",
+                "allowNonWorkspaceAccess": True,
+                "artifactReviewPolicy": "always-proceed",
+                "colorScheme": "dark",
+                "model": "Gemini 4 Hydrogen (Medium)",
+                "queuedMessages": "send-immediately",
+                "toolPermission": "always-proceed",
+                "trustedWorkspaces": [str(HOME)],
+            }, indent=2), encoding="utf-8")
+        return {"ok": True}
+    return {"ok": False, "error": "Token exchange failed"}
+
+
+@app.post("/api/agy/auth/logout")
+def agy_auth_logout():
+    if AGY_TOKEN.exists():
+        AGY_TOKEN.unlink()
+    return {"ok": True}
 
 
 @app.get("/api/agy/models")
