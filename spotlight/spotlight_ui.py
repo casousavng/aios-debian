@@ -1317,6 +1317,14 @@ class SpotlightWindow(Gtk.Window):
         actions_row.pack_end(self.new_chat_btn, False, False, 0)
         self.reply_box.pack_start(actions_row, False, False, 0)
 
+        self.reply_scroll = Gtk.ScrolledWindow()
+        self.reply_scroll.set_shadow_type(Gtk.ShadowType.NONE)
+        self.reply_scroll.get_style_context().add_class("clean-scroll")
+        self.reply_scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        self.reply_scroll.set_min_content_height(48)
+        self.reply_scroll.set_max_content_height(320)
+        self.reply_scroll.set_propagate_natural_height(True)
+        self.reply_box.pack_start(self.reply_scroll, True, True, 0)
         self.reply_view = None
         self.card.pack_start(self.reply_box, False, False, 0)
 
@@ -1354,11 +1362,15 @@ class SpotlightWindow(Gtk.Window):
         top_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
         top_row.get_style_context().add_class("search-row")
 
-        icon = Gtk.Label(label="✦")
-        icon.set_valign(Gtk.Align.END)
-        icon.set_margin_bottom(4)
-        icon.get_style_context().add_class("search-icon")
-        top_row.pack_start(icon, False, False, 0)
+        icon_btn = Gtk.Button(label="✦")
+        icon_btn.set_valign(Gtk.Align.END)
+        icon_btn.set_margin_bottom(2)
+        icon_btn.set_can_focus(False)
+        icon_btn.set_relief(Gtk.ReliefStyle.NONE)
+        icon_btn.get_style_context().add_class("search-icon")
+        icon_btn.set_tooltip_text("AI Profile (Rápido / Profundo / Só Planear)")
+        icon_btn.connect("clicked", self.toggle_ai_profiles)
+        top_row.pack_start(icon_btn, False, False, 0)
 
         self.entry_scroll = Gtk.ScrolledWindow()
         self.entry_scroll.set_shadow_type(Gtk.ShadowType.NONE)
@@ -1599,9 +1611,9 @@ class SpotlightWindow(Gtk.Window):
         try:
             js_res = view.evaluate_javascript_finish(res)
             h = int(js_res.to_int32())
-            view.set_size_request(-1, max(36, min(h + 8, 300)))
+            self.reply_scroll.set_min_content_height(max(48, min(h + 8, 320)))
         except Exception:
-            view.set_size_request(-1, 140)
+            self.reply_scroll.set_min_content_height(140)
 
     def _load_history(self):
         try:
@@ -1655,8 +1667,7 @@ class SpotlightWindow(Gtk.Window):
         self.reply_view.set_background_color(Gdk.RGBA(0, 0, 0, 0))
         self.reply_view.get_settings().set_enable_javascript(True)
         self.reply_view.connect("load-changed", self.on_reply_loaded)
-        self.reply_view.set_size_request(-1, 48)
-        self.reply_box.pack_start(self.reply_view, False, True, 0)
+        self.reply_scroll.add(self.reply_view)
 
     def show_reply(self, text, live_stream=False):
         self._ensure_reply_view()
@@ -1955,6 +1966,44 @@ class SpotlightWindow(Gtk.Window):
             self.listbox.select_row(first)
         self._sync_chat_btn()
 
+    def toggle_ai_profiles(self, *_):
+        if self.list_scroll.is_visible() and self._last_match_keys == "__profiles__":
+            self.hide_results()
+            return
+        self.reply_box.hide()
+        self.draft_box.hide()
+        matches = [
+            ("profile", *t("prof_fast"), "media-playback-start", "fast"),
+            ("profile", *t("prof_deep"), "preferences-system", "deep"),
+            ("profile", *t("prof_plan"), "document-edit", "plan"),
+        ]
+        self.results = matches
+        self._last_match_keys = "__profiles__"
+        for child in self.listbox.get_children():
+            self.listbox.remove(child)
+        for _, title, sub, icon_name, _ in matches:
+            row = Gtk.ListBoxRow()
+            hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+            ico = Gtk.Image.new_from_icon_name(icon_name, Gtk.IconSize.LARGE_TOOLBAR)
+            ico.set_pixel_size(20)
+            hbox.pack_start(ico, False, False, 0)
+            box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=1)
+            t_lbl = Gtk.Label(label=title, xalign=0)
+            t_lbl.get_style_context().add_class("row-title")
+            s_lbl = Gtk.Label(label=sub, xalign=0)
+            s_lbl.get_style_context().add_class("row-sub")
+            box.pack_start(t_lbl, False, False, 0)
+            box.pack_start(s_lbl, False, False, 0)
+            hbox.pack_start(box, True, True, 0)
+            row.add(hbox)
+            self.listbox.add(row)
+        self.divider.show()
+        self.list_scroll.show_all()
+        first = self.listbox.get_row_at_index(0)
+        if first:
+            self.listbox.select_row(first)
+        self._sync_chat_btn()
+
     def show_chats_history(self):
         chats_dir = HOME / ".ai-os" / "chats"
         files = sorted(chats_dir.glob("*.md"), reverse=True)[:8]
@@ -2078,6 +2127,44 @@ class SpotlightWindow(Gtk.Window):
             matches.append(("app", name, t("open_app", cmd=cmd.split()[0]), icon_name, cmd))
         self.results = matches
         self._last_match_keys = "__all_apps__"
+        for child in self.listbox.get_children():
+            self.listbox.remove(child)
+        for _, title, sub, icon_name, _ in matches:
+            row = Gtk.ListBoxRow()
+            hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+            ico = Gtk.Image.new_from_icon_name(icon_name, Gtk.IconSize.LARGE_TOOLBAR)
+            ico.set_pixel_size(20)
+            hbox.pack_start(ico, False, False, 0)
+            box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=1)
+            t_lbl = Gtk.Label(label=title, xalign=0)
+            t_lbl.get_style_context().add_class("row-title")
+            s_lbl = Gtk.Label(label=sub, xalign=0)
+            s_lbl.get_style_context().add_class("row-sub")
+            box.pack_start(t_lbl, False, False, 0)
+            box.pack_start(s_lbl, False, False, 0)
+            hbox.pack_start(box, True, True, 0)
+            row.add(hbox)
+            self.listbox.add(row)
+        self.divider.show()
+        self.list_scroll.show_all()
+        first = self.listbox.get_row_at_index(0)
+        if first:
+            self.listbox.select_row(first)
+        self._sync_chat_btn()
+
+    def toggle_ai_profiles(self, *_):
+        if self.list_scroll.is_visible() and self._last_match_keys == "__profiles__":
+            self.hide_results()
+            return
+        self.reply_box.hide()
+        self.draft_box.hide()
+        matches = [
+            ("profile", *t("prof_fast"), "media-playback-start", "fast"),
+            ("profile", *t("prof_deep"), "preferences-system", "deep"),
+            ("profile", *t("prof_plan"), "document-edit", "plan"),
+        ]
+        self.results = matches
+        self._last_match_keys = "__profiles__"
         for child in self.listbox.get_children():
             self.listbox.remove(child)
         for _, title, sub, icon_name, _ in matches:
@@ -2263,6 +2350,23 @@ class SpotlightWindow(Gtk.Window):
             end_iter = self.entry_buf.get_end_iter()
             self.entry_buf.place_cursor(end_iter)
             self.entry.grab_focus()
+        elif kind == "profile":
+            self.clear_query()
+            self.hide_results()
+            def _set_p():
+                try:
+                    req = urllib.request.Request(
+                        f"{API_BASE}/api/agy/profile",
+                        data=json.dumps({"profile": payload}).encode(),
+                        headers={"Content-Type": "application/json"},
+                        method="POST",
+                    )
+                    res = json.loads(urllib.request.urlopen(req, timeout=8).read().decode())
+                    name = t(f"prof_{payload}")[0]
+                    GLib.idle_add(self.show_reply, t("prof_set", name=name, model=res.get("model", "")))
+                except Exception as e:
+                    GLib.idle_add(self.show_reply, f"Erro: {e}")
+            threading.Thread(target=_set_p, daemon=True).start()
         elif kind == "clip":
             self._clipboard.set_text(payload, -1)
             self.clear_query()

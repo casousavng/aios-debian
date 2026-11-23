@@ -323,6 +323,58 @@ def agy_auth_logout():
     return {"ok": True}
 
 
+class ProfileRequest(BaseModel):
+    profile: str
+
+
+@app.post("/api/agy/profile")
+def set_agy_profile(req: ProfileRequest):
+    prof = req.profile.lower()
+    env = os.environ.copy()
+    env["PATH"] = f"{HOME / '.local/bin'}:/usr/local/bin:{env.get('PATH', '')}"
+    models = []
+    try:
+        out = subprocess.check_output(["agy", "models"], env=env, text=True, stderr=subprocess.DEVNULL, timeout=5)
+        for line in out.splitlines():
+            if "\t" in line:
+                models.append(line.split("\t", 1)[1].strip())
+    except Exception:
+        pass
+
+    def _pick(prefs):
+        for p in prefs:
+            for m in models:
+                if p.lower() in m.lower():
+                    return m
+        return None
+
+    cfg_path = HOME / ".gemini" / "antigravity-cli" / "settings.json"
+    cfg = {}
+    if cfg_path.exists():
+        try:
+            cfg = json.loads(cfg_path.read_text(encoding="utf-8"))
+        except Exception:
+            pass
+
+    if prof == "deep":
+        chosen = _pick(["hydrogen (high)", "neon (high)", "(high)"])
+        mode = "auto"
+    elif prof == "plan":
+        chosen = _pick(["hydrogen (medium)", "flash (medium)", "(medium)"])
+        mode = "plan"
+    else:
+        prof = "fast"
+        chosen = _pick(["hydrogen (medium)", "flash (medium)", "(medium)"])
+        mode = "auto"
+
+    if chosen:
+        cfg["model"] = chosen
+    cfg["agentMode"] = mode
+    cfg_path.parent.mkdir(parents=True, exist_ok=True)
+    cfg_path.write_text(json.dumps(cfg, indent=2), encoding="utf-8")
+    return {"ok": True, "profile": prof, "model": cfg.get("model", ""), "mode": mode}
+
+
 @app.get("/api/agy/models")
 def agy_models():
     global _MODELS_CACHE
@@ -501,7 +553,14 @@ def ask_stream(req: PromptRequest):
             yield json.dumps({"chat_id": res["chat_id"], "reply": res["reply"], "done": True}) + "\n"
             return
 
-        cmd = [agent_bin, "--mode", "auto", "--dangerously-skip-permissions", "--output-format", "stream-json"]
+        cfg_mode = "auto"
+        try:
+            s_file = HOME / ".gemini" / "antigravity-cli" / "settings.json"
+            if s_file.exists():
+                cfg_mode = json.loads(s_file.read_text(encoding="utf-8")).get("agentMode", "auto")
+        except Exception:
+            pass
+        cmd = [agent_bin, "--mode", cfg_mode, "--dangerously-skip-permissions", "--output-format", "stream-json"]
         if req.chat_id:
             cmd.append("--continue")
         cmd.extend(["-p", req.prompt])
