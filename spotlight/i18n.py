@@ -143,6 +143,7 @@ STRINGS = {
         "bell_tab_notif": "Notificações",
         "bell_tab_auto": "Automações",
         "bell_clear": "Limpar",
+        "new_chat_btn": "Novo chat",
     },
     "en": {
         "placeholder": "Ask anything, / for AI, # for system...",
@@ -280,6 +281,7 @@ STRINGS = {
         "bell_tab_notif": "Notifications",
         "bell_tab_auto": "Automations",
         "bell_clear": "Clear",
+        "new_chat_btn": "New Chat",
     },
 }
 

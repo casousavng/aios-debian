@@ -1816,6 +1816,16 @@ class SpotlightWindow(Gtk.Window):
         self.reply_box.get_style_context().add_class("ai-reply-box")
         actions_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
         actions_row.get_style_context().add_class("reply-actions")
+        font_dec_btn = Gtk.Button(label="A-")
+        font_dec_btn.get_style_context().add_class("reply-btn")
+        font_dec_btn.set_can_focus(False)
+        font_dec_btn.connect("clicked", lambda *_: self._step_chat_font(-1))
+        font_inc_btn = Gtk.Button(label="A+")
+        font_inc_btn.get_style_context().add_class("reply-btn")
+        font_inc_btn.set_can_focus(False)
+        font_inc_btn.connect("clicked", lambda *_: self._step_chat_font(1))
+        actions_row.pack_start(font_dec_btn, False, False, 0)
+        actions_row.pack_start(font_inc_btn, False, False, 0)
         self.copy_btn = Gtk.Button(label=t("copy"))
         self.copy_btn.get_style_context().add_class("reply-btn")
         self.copy_btn.set_can_focus(False)
@@ -1824,7 +1834,7 @@ class SpotlightWindow(Gtk.Window):
         self.litemd_btn.get_style_context().add_class("reply-btn")
         self.litemd_btn.set_can_focus(False)
         self.litemd_btn.connect("clicked", self.on_open_litemd)
-        self.new_chat_btn = Gtk.Button(label="/new")
+        self.new_chat_btn = Gtk.Button(label=t("new_chat_btn"))
         self.new_chat_btn.get_style_context().add_class("reply-btn")
         self.new_chat_btn.set_can_focus(False)
         self.new_chat_btn.connect("clicked", lambda *_: (setattr(self, "current_chat_id", None), update_config(last_chat_id=None), self.hide_results(), self.show_reply(t("new_chat"))))
@@ -1999,10 +2009,21 @@ class SpotlightWindow(Gtk.Window):
         GLib.timeout_add_seconds(600, self.refresh_wallpaper)
         GLib.timeout_add(1500, self._check_oobe)
 
+    def _step_chat_font(self, delta):
+        cur = int(get_config().get("chat_font_size", 13))
+        px = max(8, min(18, cur + delta))
+        update_config(chat_font_size=px)
+        if self.reply_view and getattr(self, "_reply_ready", False):
+            self.reply_view.evaluate_javascript(
+                f"document.body.style.fontSize='{px}px'; (() => {{ const r = document.createRange(); r.selectNodeContents(document.body); return Math.max(32, Math.ceil(r.getBoundingClientRect().height) + 12); }})();",
+                -1, None, None, None, self._on_reply_height, None,
+            )
+
     def apply_lang(self):
         self.placeholder_lbl.set_text(t("placeholder"))
         self.copy_btn.set_label(t("copy"))
         self.litemd_btn.set_label(t("open_litemd"))
+        self.new_chat_btn.set_label(t("new_chat_btn"))
         self._last_match_keys = None
         if self.get_query_text().strip():
             self.on_search_changed()
