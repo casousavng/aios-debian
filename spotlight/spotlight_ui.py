@@ -1363,7 +1363,15 @@ def open_displays_dialog(parent=None):
 
 
 def open_settings_dialog(spotlight):
+    existing = getattr(spotlight, "_settings_dlg", None)
+    if existing is not None:
+        cur_fs = int(get_config().get("chat_font_size", 13))
+        if getattr(spotlight, "_on_settings_font", None):
+            spotlight._on_settings_font(cur_fs)
+        existing.present()
+        return
     dlg = Gtk.Dialog(title=t("settings_title"), flags=0)
+    spotlight._settings_dlg = dlg
     dlg.set_position(Gtk.WindowPosition.CENTER_ALWAYS)
     dlg.set_keep_above(True)
     dlg.set_default_size(480, 300)
@@ -1439,18 +1447,34 @@ def open_settings_dialog(spotlight):
     prev_lbl.set_markup(f'<span size="{cur_fs * 1024}">{prev_sample}</span>')
     prev_frame.pack_start(prev_lbl, True, True, 0)
 
-    def _on_fs(s):
-        px = int(s.get_value())
+    _syncing_fs = [False]
+
+    def _apply_fs_ui(px):
         fs_lbl.set_text(f"Texto do Chat: {px}px" if get_lang() == "pt" else f"Chat Text: {px}px")
         prev_lbl.set_markup(f'<span size="{px * 1024}">{prev_sample}</span>')
+
+    def _on_fs(s):
+        if _syncing_fs[0]:
+            return
+        px = int(s.get_value())
+        _apply_fs_ui(px)
         update_config(chat_font_size=px)
         if spotlight.reply_view and getattr(spotlight, "_reply_ready", False):
             spotlight.reply_view.evaluate_javascript(
                 f"document.body.style.fontSize='{px}px'; (() => {{ const r = document.createRange(); r.selectNodeContents(document.body); return Math.max(32, Math.ceil(r.getBoundingClientRect().height) + 12); }})();",
                 -1, None, None, None, spotlight._on_reply_height, None,
             )
+
+    def _sync_from_chat(px):
+        _syncing_fs[0] = True
+        try:
+            fs_scale.set_value(px)
+            _apply_fs_ui(px)
+        finally:
+            _syncing_fs[0] = False
+
     fs_scale.connect("value-changed", _on_fs)
-    spotlight._on_settings_font = lambda px: fs_scale.set_value(px)
+    spotlight._on_settings_font = _sync_from_chat
     tab_ui.pack_start(fs_scale, False, False, 0)
     tab_ui.pack_start(prev_frame, False, False, 0)
 
@@ -1517,10 +1541,12 @@ def open_settings_dialog(spotlight):
     dlg.add_buttons(t("close_btn"), Gtk.ResponseType.CLOSE)
     def _close_dlg(d, *_):
         spotlight._on_settings_font = None
+        spotlight._settings_dlg = None
         d.destroy()
         return True
     dlg.connect("response", _close_dlg)
     dlg.connect("delete-event", _close_dlg)
+    dlg.connect("destroy", lambda *_: (setattr(spotlight, "_settings_dlg", None), setattr(spotlight, "_on_settings_font", None)))
     dlg.show_all()
     dlg.present()
 
@@ -2168,6 +2194,8 @@ class SpotlightWindow(Gtk.Window):
         return False
 
     def on_focus_out(self, *_):
+        if getattr(self, "_settings_dlg", None) is not None:
+            return False
         if self.reply_box.is_visible() or self.list_scroll.is_visible() or self.draft_box.is_visible():
             self.hide_results()
         if not self.get_query_text().strip():
