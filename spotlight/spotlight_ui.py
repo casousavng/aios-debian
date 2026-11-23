@@ -142,7 +142,7 @@ button.status-trigger:hover, button.status-trigger:active {
     background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.16) 0%, rgba(20, 26, 34, 0.08) 100%);
     background-color: rgba(16, 21, 29, 0.94);
     border: 1px solid rgba(255, 255, 255, 0.30);
-    border-radius: 14px;
+    border-radius: 22px;
     padding: 7px 16px;
 }
 .draft-letter,
