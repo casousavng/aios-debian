@@ -18,6 +18,8 @@ gsettings set org.nemo.desktop computer-icon-visible false 2>/dev/null || true
 gsettings set org.nemo.desktop home-icon-visible false 2>/dev/null || true
 gsettings set org.nemo.desktop trash-icon-visible false 2>/dev/null || true
 gsettings set org.nemo.desktop volumes-visible false 2>/dev/null || true
+gio set "$HOME/Desktop" metadata::nemo-icon-view-auto-layout false 2>/dev/null || true
+gio set "$HOME/Desktop" metadata::nemo-icon-view-keep-aligned true 2>/dev/null || true
 nemo-desktop &
 
 # Aplica wallpaper dinâmico e arranca Spotlight + gestos touchpad
