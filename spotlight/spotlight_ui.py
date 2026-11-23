@@ -27,7 +27,11 @@ REPLY_HTML = """<!DOCTYPE html>
   html, body { background: transparent; margin: 0; padding: 0; color: #f1f5f9;
     font-family: system-ui, -apple-system, sans-serif; font-size: 13px; line-height: 1.5;
     overflow-wrap: anywhere; word-break: break-word; max-width: 100%; overflow-x: hidden; }
-  body { padding: 4px 6px; }
+  body { padding: 4px 10px 16px 6px; }
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: rgba(148, 163, 184, 0.40); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: rgba(103, 232, 249, 0.65); }
   h1, h2, h3 { color: #ffffff; margin: 0.6em 0 0.3em; font-size: 14px; font-weight: 650; }
   p { margin: 0.35em 0; }
   ul, ol { margin: 0.35em 0; padding-left: 1.3em; }
@@ -45,7 +49,7 @@ REPLY_HTML = """<!DOCTYPE html>
   .msg-row { display: flex; width: 100%; margin: 6px 0; }
   .msg-user { justify-content: flex-end; }
   .msg-ai { justify-content: flex-start; }
-  .bubble { max-width: 86%; padding: 8px 12px; border-radius: 14px; }
+  .bubble { max-width: 92%; padding: 8px 12px; border-radius: 14px; }
   .bubble-user { background: rgba(103, 232, 249, 0.16); border: 1px solid rgba(103, 232, 249, 0.36); color: #f8fafc; border-bottom-right-radius: 4px; }
   .bubble-ai { background: rgba(255, 255, 255, 0.06); border: 1px solid rgba(255, 255, 255, 0.12); color: #e2e8f0; border-bottom-left-radius: 4px; }
   .bubble p:first-child { margin-top: 0; }
@@ -2387,7 +2391,16 @@ class SpotlightWindow(Gtk.Window):
                                 update_config(last_chat_id=self.current_chat_id)
                             final_reply = ev.get("reply", "Concluído.")
                         elif ev.get("status") and not acc:
-                            GLib.idle_add(self.show_reply, f"⚙ {t('step_tool', tool=ev['status'])}", True)
+                            raw_t = str(ev["status"])
+                            friendly = {
+                                "run_command": "sistema" if get_lang() == "pt" else "system",
+                                "read_file": "leitura" if get_lang() == "pt" else "reading",
+                                "view_file": "leitura" if get_lang() == "pt" else "reading",
+                                "write_file": "escrita" if get_lang() == "pt" else "writing",
+                                "edit_file": "edição" if get_lang() == "pt" else "editing",
+                                "search_web": "pesquisa web" if get_lang() == "pt" else "web search",
+                            }.get(raw_t, "ação" if get_lang() == "pt" else "action")
+                            GLib.idle_add(self.show_reply, f"⚙ {t('step_tool', tool=friendly)}", True)
                         elif ev.get("delta"):
                             acc.append(ev["delta"])
                             now = time.monotonic()
