@@ -1385,7 +1385,7 @@ class SpotlightWindow(Gtk.Window):
         vadj.connect("changed", lambda a: self.mini_scroll.set_visible(a.get_upper() > a.get_page_size() + 2))
         top_row.pack_start(self.mini_scroll, False, False, 0)
 
-        self.resume_chat_btn = Gtk.Button(label="Chat")
+        self.resume_chat_btn = Gtk.Button(label="▴ Chat")
         self.resume_chat_btn.set_valign(Gtk.Align.END)
         self.resume_chat_btn.set_size_request(-1, 28)
         self.resume_chat_btn.get_style_context().add_class("chat-pill")
@@ -1486,6 +1486,7 @@ class SpotlightWindow(Gtk.Window):
         self.show()
         self.present_with_time(Gdk.CURRENT_TIME)
         self.set_opacity(1.0)
+        self._sync_chat_btn()
         self.entry.grab_focus()
 
     def refresh_wallpaper(self):
@@ -1526,7 +1527,8 @@ class SpotlightWindow(Gtk.Window):
             self.start_agy_login()
 
     def _sync_chat_btn(self):
-        if bool(self.current_chat_id) and not self.reply_box.is_visible():
+        if self.current_chat_id:
+            self.resume_chat_btn.set_label("▾ Chat" if self.reply_box.is_visible() else "▴ Chat")
             self.resume_chat_btn.show_all()
         else:
             self.resume_chat_btn.hide()
