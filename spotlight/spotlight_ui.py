@@ -318,11 +318,11 @@ list.results-list row:selected {
     color: rgba(241, 245, 249, 0.78);
 }
 .ai-reply-box {
-    background-color: rgba(15, 23, 42, 0.35);
-    border: 1px solid rgba(255, 255, 255, 0.18);
-    border-radius: 14px;
-    padding: 8px 12px 10px 12px;
-    margin: 4px 6px 6px 6px;
+    background-color: transparent;
+    border: none;
+    border-radius: 0;
+    padding: 2px 2px 4px 2px;
+    margin: 2px 0 4px 0;
 }
 .reply-actions {
     margin-bottom: 4px;
@@ -3095,6 +3095,7 @@ class SpotlightWindow(Gtk.Window):
             last_render = 0.0
             final_reply = None
             new_chat_id = None
+            is_ephemeral = False
             try:
                 req = urllib.request.Request(
                     f"{API_BASE}/api/ask_stream",
@@ -3112,6 +3113,7 @@ class SpotlightWindow(Gtk.Window):
                         ev = json.loads(line)
                         if ev.get("done"):
                             new_chat_id = ev.get("chat_id")
+                            is_ephemeral = bool(ev.get("ephemeral"))
                             final_reply = ev.get("reply", "Concluído.")
                         elif ev.get("status") and not acc:
                             raw_t = str(ev["status"])
@@ -3138,10 +3140,14 @@ class SpotlightWindow(Gtk.Window):
             def _finish():
                 if self._cancelled or run_id != self._active_run_id:
                     return False
-                if new_chat_id:
+                if is_ephemeral:
+                    self.current_chat_id = None
+                    update_config(last_chat_id=None)
+                elif new_chat_id:
                     self.current_chat_id = new_chat_id
                     update_config(last_chat_id=new_chat_id)
                 self.show_reply(reply)
+                self._sync_chat_btn()
                 self._set_busy(False)
                 if not self.has_toplevel_focus():
                     try:

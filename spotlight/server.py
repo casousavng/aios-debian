@@ -580,6 +580,7 @@ def ask_stream(req: PromptRequest):
             cmd.append("--continue")
         cmd.extend(["-p", req.prompt])
 
+        before_sched = {it.get("id") for it in _load_reminders()} | {it.get("id") for it in list_crons()}
         proc = subprocess.Popen(
             cmd, cwd=str(HOME), env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
         )
@@ -618,11 +619,19 @@ def ask_stream(req: PromptRequest):
             if _ACTIVE_PROC.get("proc") is proc:
                 _ACTIVE_PROC["proc"] = None
         reply = final_text or "".join(full_reply).strip() or proc.stderr.read().strip() or "Concluído."
-        with chat_file.open("a", encoding="utf-8") as f:
-            f.write(f"\n### AI-OS\n{reply}\n")
+        after_sched = {it.get("id") for it in _load_reminders()} | {it.get("id") for it in list_crons()}
+        ephemeral = bool(after_sched - before_sched)
+        if ephemeral and not req.chat_id:
+            try:
+                chat_file.unlink(missing_ok=True)
+            except OSError:
+                pass
+        else:
+            with chat_file.open("a", encoding="utf-8") as f:
+                f.write(f"\n### AI-OS\n{reply}\n")
         (LOGS_DIR / "last_action.log").write_text(reply, encoding="utf-8")
         _write_audit(req.prompt, used_tools, f"rc={rc}")
-        yield json.dumps({"chat_id": chat_id, "reply": reply, "done": True}) + "\n"
+        yield json.dumps({"chat_id": None if ephemeral else chat_id, "ephemeral": ephemeral, "reply": reply, "done": True}) + "\n"
 
     return StreamingResponse(_stream(), media_type="application/x-ndjson")
 
