@@ -393,4 +393,7 @@ def human_cron(schedule: str, lang: str | None = None) -> str:
         dname = (days_pt if pt else days_en).get(dow)
         if dname:
             return f"{dname} às {hhmm}" if pt else f"{dname} at {hhmm}"
+    if m.isdigit() and h.isdigit() and dom.isdigit() and mon.isdigit() and dow == "*":
+        hhmm = f"{int(h):02d}:{int(m):02d}"
+        return f"{int(dom):02d}/{int(mon):02d} às {hhmm}" if pt else f"{int(mon):02d}/{int(dom):02d} at {hhmm}"
     return schedule

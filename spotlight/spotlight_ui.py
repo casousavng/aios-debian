@@ -719,15 +719,21 @@ class RemindersPopover(Gtk.Window):
                     row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=4)
                     when = human_cron(it.get("schedule", ""))
                     is_paused = bool(it.get("paused"))
-                    prefix = "⏸ " if is_paused else "↻ "
+                    prefix = "[Pausado] " if is_paused else "• "
                     lbl = Gtk.Label(label=f"{prefix}{when} · {it.get('label', '')}", xalign=0)
                     lbl.set_ellipsize(Pango.EllipsizeMode.END)
-                    lbl.set_max_width_chars(32)
+                    lbl.set_max_width_chars(30)
                     lbl.get_style_context().add_class("pop-sub")
-                    pb = Gtk.Button(label="▶" if is_paused else "⏸")
+                    pb = Gtk.Button()
+                    p_ico = Gtk.Image.new_from_icon_name(
+                        "media-playback-start-symbolic" if is_paused else "media-playback-pause-symbolic",
+                        Gtk.IconSize.MENU,
+                    )
+                    p_ico.set_pixel_size(12)
+                    pb.add(p_ico)
                     pb.get_style_context().add_class("reply-btn")
                     pb.connect("clicked", lambda _, cid=it.get("id"): self._toggle_cron(cid))
-                    xb = Gtk.Button(label="✕")
+                    xb = Gtk.Button(label="×")
                     xb.get_style_context().add_class("reply-btn")
                     xb.connect("clicked", lambda _, sid=it.get("id"): self._delete_sched("cron", sid))
                     row.pack_start(lbl, True, True, 0)
@@ -735,6 +741,10 @@ class RemindersPopover(Gtk.Window):
                     row.pack_end(pb, False, False, 0)
                     self.sched_box.add(row)
                 self.sched_box.show_all()
+                auto_cnt = len(rems) + len(crons)
+                notif_cnt = len(notifs)
+                self.tab_auto_btn.set_label(f"{t('bell_tab_auto')} ({auto_cnt})" if auto_cnt else t("bell_tab_auto"))
+                self.tab_notif_btn.set_label(f"{t('bell_tab_notif')} ({notif_cnt})" if notif_cnt else t("bell_tab_notif"))
 
                 for c in self.notif_box.get_children():
                     self.notif_box.remove(c)

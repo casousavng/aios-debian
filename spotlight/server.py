@@ -63,9 +63,8 @@ def status():
     bat = psutil.sensors_battery()
     bat_str = f"{int(bat.percent)}%" if bat else "AC"
     now = datetime.datetime.now().strftime("%H:%M")
-    rem_count = len(_load_reminders()) + len(list_crons())
     notif_count = len(NOTIF_LOG.read_text(encoding="utf-8", errors="ignore").splitlines()) if NOTIF_LOG.exists() else 0
-    return {"battery": bat_str, "wifi": get_wifi_status(), "time": now, "alerts": rem_count + notif_count}
+    return {"battery": bat_str, "wifi": get_wifi_status(), "time": now, "alerts": notif_count}
 
 @app.get("/api/chats")
 def list_chats():

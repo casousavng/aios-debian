@@ -23,9 +23,10 @@ case "$KIND" in
     ask)
         BODY=$(python3 -c 'import json,sys; print(json.dumps({"prompt": sys.argv[1], "confirmed": False}))' "$PAYLOAD")
         REPLY=$(curl -s -X POST http://127.0.0.1:8765/api/ask -H "Content-Type: application/json" -d "$BODY" | jq -r '.reply // "Concluído."' 2>/dev/null || echo "Erro backend")
-        ONE_LINE=$(printf '%s' "$REPLY" | tr '\n' ' ' | cut -c1-160)
-        printf '%s | AI-OS Auto | %s\n' "$TS" "$ONE_LINE" >> "$NOTIF_LOG"
-        notify-send -u critical -t 0 "AI-OS Automação" "$ONE_LINE" 2>/dev/null || true
+        printf '%s\n' "$REPLY" > "$HOME/.ai-os/logs/last_cron.log"
+        CLEAN=$(python3 -c 'import re,sys; s=re.sub(r"\[([^\]]+)\]\([^)]+\)",r"\1",sys.argv[1]); s=re.sub(r"[#*`]+","",s); s=" ".join(s.splitlines()[0].split()) if s.strip() else "Concluída."; print(s[:95])' "$REPLY")
+        printf '%s | AI-OS Auto | %s\n' "$TS" "$CLEAN" >> "$NOTIF_LOG"
+        notify-send -u critical -t 0 "AI-OS Automação concluída" "$CLEAN" 2>/dev/null || true
         ;;
     cmd)
         OUT=$(bash -lc "$PAYLOAD" 2>&1 | tail -n 3 | tr '\n' ' ' | cut -c1-160)
