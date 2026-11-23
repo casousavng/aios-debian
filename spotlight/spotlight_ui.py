@@ -1165,11 +1165,19 @@ class SpotlightWindow(Gtk.Window):
         self.status_lbl.get_style_context().add_class("keycap-badge")
         top_row.pack_start(self.status_lbl, False, False, 0)
 
-        send_btn = Gtk.Button(label="→")
-        send_btn.get_style_context().add_class("send-arrow")
-        send_btn.set_can_focus(False)
-        send_btn.connect("clicked", self.on_activate)
-        top_row.pack_end(send_btn, False, False, 0)
+        self.send_btn = Gtk.Button(label="→")
+        self.send_btn.get_style_context().add_class("send-arrow")
+        self.send_btn.set_can_focus(False)
+        self.send_btn.connect("clicked", self.on_activate)
+        top_row.pack_end(self.send_btn, False, False, 0)
+
+        self.stop_btn = Gtk.Button(label="■")
+        self.stop_btn.get_style_context().add_class("send-arrow")
+        self.stop_btn.set_can_focus(False)
+        self.stop_btn.set_no_show_all(True)
+        self.stop_btn.connect("clicked", self.on_stop_ai)
+        top_row.pack_end(self.stop_btn, False, False, 0)
+        self._cancelled = False
 
         self.card.pack_start(top_row, False, False, 0)
 
@@ -1899,6 +1907,19 @@ class SpotlightWindow(Gtk.Window):
         except Exception as e:
             self.show_reply(t("login_fail", err=e))
 
+    def _set_busy(self, busy: bool):
+        self.send_btn.set_visible(not busy)
+        self.stop_btn.set_visible(busy)
+        if self.topbar:
+            self.topbar.set_ai_busy(busy)
+
+    def on_stop_ai(self, *_):
+        self._cancelled = True
+        self._set_busy(False)
+        self.show_reply(t("ai_stopped"))
+        req = urllib.request.Request(f"{API_BASE}/api/ask_stop", data=b"{}", method="POST")
+        threading.Thread(target=lambda: urllib.request.urlopen(req, timeout=3).read(), daemon=True).start()
+
     def send_to_ai(self, prompt):
         if prompt.strip().startswith(("#lang ", "/lang ")):
             if self.topbar and not self.topbar._confirm_lang_switch():
@@ -1910,10 +1931,10 @@ class SpotlightWindow(Gtk.Window):
             self.show_reply(t("lang_changed"))
             return
 
+        self._cancelled = False
         self._save_history(prompt)
         self.show_reply(t("processing"))
-        if self.topbar:
-            GLib.idle_add(self.topbar.set_ai_busy, True)
+        self._set_busy(True)
 
         def _worker():
             import time
@@ -1948,10 +1969,10 @@ class SpotlightWindow(Gtk.Window):
             except Exception as e:
                 reply = f"Erro ao contactar backend AI-OS: {e}"
 
-            GLib.idle_add(self.show_reply, reply)
-            if self.topbar:
-                GLib.idle_add(self.topbar.set_ai_busy, False)
-            if not self.has_toplevel_focus():
+            if not self._cancelled:
+                GLib.idle_add(self.show_reply, reply)
+            GLib.idle_add(self._set_busy, False)
+            if not self.has_toplevel_focus() and not self._cancelled:
                 subprocess.Popen(["notify-send", "AI-OS Spotlight", t("done_notify")])
 
         threading.Thread(target=_worker, daemon=True).start()

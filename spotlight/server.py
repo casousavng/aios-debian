@@ -451,6 +451,21 @@ def _write_audit(prompt: str, tools: list, status: str):
         pass
 
 
+_ACTIVE_PROC = {"proc": None}
+
+
+@app.post("/api/ask_stop")
+def ask_stop():
+    proc = _ACTIVE_PROC.get("proc")
+    if proc and proc.poll() is None:
+        try:
+            proc.terminate()
+            return {"ok": True, "stopped": True}
+        except Exception:
+            pass
+    return {"ok": True, "stopped": False}
+
+
 @app.post("/api/ask_stream")
 def ask_stream(req: PromptRequest):
     prompt = req.prompt.strip()
@@ -494,35 +509,40 @@ def ask_stream(req: PromptRequest):
         proc = subprocess.Popen(
             cmd, cwd=str(HOME), env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
         )
+        _ACTIVE_PROC["proc"] = proc
         full_reply = []
         final_text = ""
         used_tools = []
-        for raw_line in proc.stdout:
-            raw_line = raw_line.strip()
-            if not raw_line:
-                continue
-            try:
-                ev = json.loads(raw_line)
-            except Exception:
-                continue
-            etype = ev.get("event")
-            if etype == "step_update":
-                su = ev.get("step_update", {})
-                stype = su.get("step_type", "")
-                delta = su.get("text_delta")
-                if delta:
-                    full_reply.append(delta)
-                    yield json.dumps({"delta": delta, "done": False}) + "\n"
-                elif stype and stype not in ("user_input", "agent_response") and not full_reply:
-                    tool_name = su.get("tool_name") or stype
-                    used_tools.append(tool_name)
-                    yield json.dumps({"status": tool_name, "done": False}) + "\n"
-                elif su.get("tool_name"):
-                    used_tools.append(su.get("tool_name"))
-            elif etype == "result":
-                final_text = ev.get("result", {}).get("response", "").strip()
+        try:
+            for raw_line in proc.stdout:
+                raw_line = raw_line.strip()
+                if not raw_line:
+                    continue
+                try:
+                    ev = json.loads(raw_line)
+                except Exception:
+                    continue
+                etype = ev.get("event")
+                if etype == "step_update":
+                    su = ev.get("step_update", {})
+                    stype = su.get("step_type", "")
+                    delta = su.get("text_delta")
+                    if delta:
+                        full_reply.append(delta)
+                        yield json.dumps({"delta": delta, "done": False}) + "\n"
+                    elif stype and stype not in ("user_input", "agent_response") and not full_reply:
+                        tool_name = su.get("tool_name") or stype
+                        used_tools.append(tool_name)
+                        yield json.dumps({"status": tool_name, "done": False}) + "\n"
+                    elif su.get("tool_name"):
+                        used_tools.append(su.get("tool_name"))
+                elif etype == "result":
+                    final_text = ev.get("result", {}).get("response", "").strip()
 
-        rc = proc.wait()
+            rc = proc.wait()
+        finally:
+            if _ACTIVE_PROC.get("proc") is proc:
+                _ACTIVE_PROC["proc"] = None
         reply = final_text or "".join(full_reply).strip() or proc.stderr.read().strip() or "Concluído."
         with chat_file.open("a", encoding="utf-8") as f:
             f.write(f"\n### AI-OS\n{reply}\n")
