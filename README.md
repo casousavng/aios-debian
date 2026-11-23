@@ -28,14 +28,14 @@ It is built to run fast on both modern machines and older hardware/VMs (~**405 M
 - **TopBar (`28px`) & Control Center:**
   - `◉` / `✦ AI...` live agent busy indicator, clickable **4-Desktop switcher** (`Desktop 1..4` with `•` occupancy dots + `WindowsPopover` grouped by Desktop), horizontal scroll workspace switching, live `PT`/`EN` toggle (with centered confirmation), network/battery/clock, and low-battery alerts (`15%` / `5%` critical).
   - **Control Popover:** Volume (`wpctl`), **Audio Output switcher** (`wpctl` sinks), Brightness (`brightnessctl` / `xrandr`), Podman container count, Wi-Fi network selector, **Bluetooth toggle & paired devices**, **Detect Displays (`xrandr --auto`)**, and Lock Screen.
-- **Desktop, Gestures & Visual Design (`Openbox` + `PCManFM` + `picom`):**
+- **Desktop, Gestures & Visual Design (`Openbox` + `Nemo` + `picom`):**
   - Unified **AI-OS-Glass** theme (`themerc`, `gtk.css`, `Papirus-Dark`, `Inter` & `JetBrains Mono` fonts, `Bibata-Modern-Classic` cursor).
   - Dynamic Cairo wave wallpaper (`wallpaper.py`) reused on the lockscreen (`lock.sh` + `i3lock` + `xss-lock` 10-min idle lock).
   - **3-Finger Touchpad Gestures (`gestures.py`):** 3-finger swipe left/right switches Desktops; 3-finger swipe up focuses Spotlight (`libinput-tools`).
   - **Native Window Tiling:** `Super+Left`, `Super+Right`, `Super+Up`, `Super+Down`.
   - **Quick Screenshot to AI:** `Print` / `Super+Shift+S` / `#screenshot` saves `~/Temp/captura.png` and auto-attaches `@Temp/captura.png ` in Spotlight.
   - **First-Boot OOBE:** Centered welcome dialog if `agy` is not yet signed in (language selector + 1-click `/login`).
-  - **Built-in Apps & Lean Footprint:** `Chromium`, **LiteMD** (`litemd.py`), **GPicView**, `xterm`, `PCManFM` (`gvfs` + `udisks2`), `lxpolkit`, `dunst`, `PipeWire` + `WirePlumber`, `Podman` rootless, `ufw`, `zram-tools` (LZ4), `earlyoom`, `99norecommends`, `01_nodoc`, `journald` `50M` cap.
+  - **Built-in Apps & Lean Footprint:** `Chromium`, **LiteMD** (`litemd.py`), **GPicView**, `xterm`, `Nemo` (`gvfs` + `udisks2`), `lxpolkit`, `dunst`, `PipeWire` + `WirePlumber`, `Podman` rootless, `ufw`, `zram-tools` (LZ4), `earlyoom`, `99norecommends`, `01_nodoc`, `journald` `50M` cap.
 
 ### Keyboard Shortcuts
 | Shortcut | Action |
@@ -83,7 +83,7 @@ Foi otimizado para correr rápido tanto em máquinas atuais como em hardware ant
 - **Barra de Topo (`28px`) & Centro de Controlo:**
   - Indicador `◉` / `✦ AI...`, seletor de **4 Desktops** (`Desktop 1..4` com `•` de ocupação + `WindowsPopover` agrupado por Desktop), scroll horizontal na barra/desktop, toggle `PT`/`EN`, rede/bateria/hora e alertas de bateria fraca (`15%` / `5%` crítico).
   - **Popover de Controlo:** Volume (`wpctl`), **Seletor de Saída de Áudio**, Brilho (`brightnessctl`/`xrandr`), contentores Podman, Wi-Fi, **Bluetooth toggle & dispositivos emparelhados**, **Detetar Ecrãs (`xrandr --auto`)** e Bloquear Ecrã.
-- **Desktop, Gestos & Grafismo (`Openbox` + `PCManFM` + `picom`):**
+- **Desktop, Gestos & Grafismo (`Openbox` + `Nemo` + `picom`):**
   - Tema unificado **AI-OS-Glass** (`themerc`, `gtk.css`, `Papirus-Dark`, fontes `Inter` e `JetBrains Mono`, cursor `Bibata-Modern-Classic`).
   - Wallpaper dinâmico em Cairo (`wallpaper.py`) reutilizado no `i3lock` (`lock.sh` + `xss-lock`).
   - **Gestos 3 Dedos (`gestures.py`):** 3 dedos esquerda/direita troca de Desktop; 3 dedos cima foca o Spotlight.

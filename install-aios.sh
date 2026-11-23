@@ -10,7 +10,7 @@ sudo sed -i 's/^# *pt_PT.UTF-8 UTF-8/pt_PT.UTF-8 UTF-8/' /etc/locale.gen
 sudo locale-gen pt_PT.UTF-8 en_US.UTF-8
 sudo apt-get update
 
-echo "=== [2/6] Instalar Xorg, Openbox, PCManFM, Spotlight GTK3 e utilitários de sistema ==="
+echo "=== [2/6] Instalar Xorg, Openbox, Nemo, Spotlight GTK3 e utilitários de sistema ==="
 sudo DEBIAN_FRONTEND=noninteractive apt-get install -y \
   xorg xinit openbox nemo cinnamon-l10n picom wmctrl x11-xserver-utils papirus-icon-theme librsvg2-common \
   python3-gi python3-gi-cairo python3-cairo gir1.2-gtk-3.0 gir1.2-webkit2-4.1 python3-markdown spice-vdagent \

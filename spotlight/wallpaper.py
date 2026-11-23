@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generates a sleek flowing-wave dynamic wallpaper for AI-OS and applies it via PCManFM."""
+"""Generates a sleek flowing-wave dynamic wallpaper for AI-OS and applies it via gsettings (Nemo)."""
 import datetime
 import math
 import os

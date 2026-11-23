@@ -1,11 +1,11 @@
 # Constituição do Sistema Operativo (AI-OS) — `AGENTS.md`
 
-Este repositório define o protótipo **AI-OS Debian**: um sistema operativo minimalista baseado em Debian Netinst onde o ambiente gráfico é 100% limpo (Openbox sem barras ou painéis, apenas pastas e ficheiros geridos pelo PCManFM) e toda a interação, configuração de hardware e criação de ficheiros é orquestrada por uma janela **Spotlight** sempre acessível ligada a um agente CLI (`agy` ou `opencode`).
+Este repositório define o protótipo **AI-OS Debian**: um sistema operativo minimalista baseado em Debian Netinst onde o ambiente gráfico é 100% limpo (Openbox com barra superior minimalista, apenas pastas e ficheiros geridos pelo Nemo) e toda a interação, configuração de hardware e criação de ficheiros é orquestrada pelo **Spotlight** sempre acessível ligado a um agente CLI (`agy` ou `opencode`).
 
 ## 1. Arquitetura Base
 - **SO Base:** Debian 12/13 Netinst (sem Desktop Environment pré-instalado), com `APT::Install-Recommends "false";` e `APT::Install-Suggests "false";`.
 - **Arranque:** Autologin no `tty1` via `systemd` (`getty@tty1.service`) -> `startx` automático no `~/.profile`.
-- **Camada Gráfica:** `xorg` + `openbox` (zero barras/painéis) + `pcmanfm --desktop` (ícones/pastas no ambiente de trabalho).
+- **Camada Gráfica:** `xorg` + `openbox` + `nemo-desktop` (ícones/pastas no ambiente de trabalho).
 - **Interface Principal (Spotlight):** Aplicação web local (`FastAPI` + HTML/JS) corrida em janela flutuante/app (`chromium --app=http://localhost:8765`), com histórico de conversas em Markdown (`~/.ai-os/chats/`), indicadores de bateria/Wi-Fi/hora e atalho global `Super+Espaço`.
 
 ## 2. Regras de Gestão de Ficheiros e Pastas

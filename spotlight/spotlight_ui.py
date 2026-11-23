@@ -1815,7 +1815,7 @@ class TopBarWindow(Gtk.Window):
             low = app_name.lower()
             if "chromium" in low:
                 icon_name, label_txt = "web-browser", "Browser"
-            elif "pcmanfm" in low:
+            elif "pcmanfm" in low or "nemo" in low:
                 icon_name, label_txt = "system-file-manager", "Ficheiros"
             elif "xterm" in low:
                 icon_name, label_txt = "utilities-terminal", "Terminal"
