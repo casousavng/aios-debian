@@ -359,3 +359,34 @@ def is_dangerous_prompt(prompt: str) -> str | None:
         if pat.search(p):
             return reason
     return None
+
+
+def human_cron(schedule: str, lang: str | None = None) -> str:
+    lang = lang or get_lang()
+    parts = (schedule or "").strip().split()
+    if len(parts) != 5:
+        return schedule
+    m, h, dom, mon, dow = parts
+    pt = lang == "pt"
+    if parts == ["*", "*", "*", "*", "*"]:
+        return "Todos os minutos" if pt else "Every minute"
+    if m.startswith("*/") and h == "*" and dom == "*" and mon == "*" and dow == "*":
+        n = m[2:]
+        return f"A cada {n} min" if pt else f"Every {n} min"
+    if m.isdigit() and h == "*" and dom == "*" and mon == "*" and dow == "*":
+        return f"De hora a hora (:{int(m):02d})" if pt else f"Hourly (:{int(m):02d})"
+    if m.isdigit() and h.startswith("*/") and dom == "*" and mon == "*" and dow == "*":
+        n = h[2:]
+        return f"A cada {n}h (:{int(m):02d})" if pt else f"Every {n}h (:{int(m):02d})"
+    if m.isdigit() and h.isdigit() and dom == "*" and mon == "*":
+        hhmm = f"{int(h):02d}:{int(m):02d}"
+        if dow == "*":
+            return f"Todos os dias às {hhmm}" if pt else f"Daily at {hhmm}"
+        if dow == "1-5":
+            return f"Dias úteis às {hhmm}" if pt else f"Weekdays at {hhmm}"
+        days_pt = {"0": "Domingo", "7": "Domingo", "1": "Segunda", "2": "Terça", "3": "Quarta", "4": "Quinta", "5": "Sexta", "6": "Sábado"}
+        days_en = {"0": "Sunday", "7": "Sunday", "1": "Monday", "2": "Tuesday", "3": "Wednesday", "4": "Thursday", "5": "Friday", "6": "Saturday"}
+        dname = (days_pt if pt else days_en).get(dow)
+        if dname:
+            return f"{dname} às {hhmm}" if pt else f"{dname} at {hhmm}"
+    return schedule

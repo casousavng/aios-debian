@@ -13,7 +13,7 @@ from pathlib import Path
 import cairo
 import gi
 import markdown
-from i18n import get_config, get_lang, is_dangerous_prompt, set_lang, t, update_config
+from i18n import get_config, get_lang, human_cron, is_dangerous_prompt, set_lang, t, update_config
 
 gi.require_version("Gtk", "3.0")
 gi.require_version("Gdk", "3.0")
@@ -654,7 +654,10 @@ class RemindersPopover(Gtk.Window):
                     self.sched_box.add(row)
                 for it in crons[:5]:
                     row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=4)
-                    lbl = Gtk.Label(label=f"↻ [{it.get('schedule')}] {it.get('label', '')[:22]}", xalign=0)
+                    when = human_cron(it.get("schedule", ""))
+                    lbl = Gtk.Label(label=f"↻ {when} · {it.get('label', '')}", xalign=0)
+                    lbl.set_ellipsize(Pango.EllipsizeMode.END)
+                    lbl.set_max_width_chars(38)
                     lbl.get_style_context().add_class("pop-sub")
                     xb = Gtk.Button(label="✕")
                     xb.get_style_context().add_class("reply-btn")
@@ -2524,7 +2527,8 @@ class SpotlightWindow(Gtk.Window):
         try:
             with urllib.request.urlopen(f"{API_BASE}/api/crons", timeout=2) as r:
                 for it in json.loads(r.read().decode()):
-                    matches.append(("del_cron", f"↻ [{it.get('schedule')}] {it.get('label', '')}", f"Cron ({it.get('kind')}) — Enter/Click to remove", "preferences-system-time", it.get("id")))
+                    when = human_cron(it.get("schedule", ""))
+                    matches.append(("del_cron", f"↻ {it.get('label', '')}", f"{when} ({it.get('kind')}) — Enter/Click to remove", "preferences-system-time", it.get("id")))
         except Exception:
             pass
         if not matches:

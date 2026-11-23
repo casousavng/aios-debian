@@ -40,6 +40,11 @@ class SmokeTests(unittest.TestCase):
         self.assertIsNone(i18n.is_dangerous_prompt("lista ficheiros em ~/Downloads"))
         self.assertIsNone(i18n.is_dangerous_prompt("/new"))
 
+    def test_human_cron(self):
+        self.assertEqual(i18n.human_cron("0 9 * * *", "pt"), "Todos os dias às 09:00")
+        self.assertEqual(i18n.human_cron("*/5 * * * *", "pt"), "A cada 5 min")
+        self.assertEqual(i18n.human_cron("30 14 * * 1-5", "en"), "Weekdays at 14:30")
+
 
 if __name__ == "__main__":
     unittest.main()
