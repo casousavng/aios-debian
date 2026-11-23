@@ -1,4 +1,8 @@
 /* AI-OS Unified Dark Slate + Cyan-Teal GTK3 Theme */
+* {
+    font-family: "Inter", sans-serif;
+}
+
 headerbar, .titlebar {
     background-color: #161c26;
     background-image: none;

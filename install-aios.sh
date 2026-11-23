@@ -13,6 +13,7 @@ sudo DEBIAN_FRONTEND=noninteractive apt-get install -y \
   python3-gi python3-gi-cairo python3-cairo gir1.2-gtk-3.0 gir1.2-webkit2-4.1 python3-markdown spice-vdagent \
   network-manager cups brightnessctl pipewire wireplumber dunst libnotify-bin podman ufw i3lock \
   gvfs gvfs-backends udisks2 scrot lxpolkit xss-lock gpicview \
+  fonts-inter fonts-jetbrains-mono earlyoom bibata-cursor-theme \
   python3 python3-fastapi python3-uvicorn python3-psutil \
   curl git libglib2.0-bin xterm zram-tools
 
@@ -37,9 +38,16 @@ cp config/gtk.css "$HOME/.config/gtk-3.0/gtk.css"
 cat << 'EOF' > "$HOME/.config/gtk-3.0/settings.ini"
 [Settings]
 gtk-icon-theme-name=Papirus-Dark
+gtk-cursor-theme-name=Bibata-Modern-Classic
+gtk-cursor-theme-size=24
+gtk-font-name=Inter 10
 gtk-application-prefer-dark-theme=1
 EOF
-echo 'gtk-icon-theme-name="Papirus-Dark"' > "$HOME/.gtkrc-2.0"
+cat << 'EOF' > "$HOME/.gtkrc-2.0"
+gtk-icon-theme-name="Papirus-Dark"
+gtk-cursor-theme-name="Bibata-Modern-Classic"
+gtk-font-name="Inter 10"
+EOF
 
 sudo mkdir -p /etc/systemd/logind.conf.d
 cat << 'EOF' | sudo tee /etc/systemd/logind.conf.d/99-aios.conf >/dev/null
@@ -58,14 +66,15 @@ RuntimeMaxUse=20M
 EOF
 sudo systemctl disable --now cups.service || true
 sudo systemctl enable cups.socket || true
+sudo systemctl enable --now earlyoom || true
 
 echo "=== [4/6] Instalar aplicação Spotlight e Antigravity CLI (agy) ==="
 if ! command -v agy >/dev/null 2>&1 && [ ! -x "$HOME/.local/bin/agy" ]; then
   curl -fsSL https://antigravity.google/cli/install.sh | bash || true
 fi
 sudo mkdir -p /opt/ai-os/spotlight
-sudo cp spotlight/server.py spotlight/index.html spotlight/spotlight_ui.py spotlight/wallpaper.py spotlight/litemd.py spotlight/i18n.py spotlight/screenshot.sh /opt/ai-os/spotlight/
-sudo chmod +x /opt/ai-os/spotlight/spotlight_ui.py /opt/ai-os/spotlight/wallpaper.py /opt/ai-os/spotlight/litemd.py /opt/ai-os/spotlight/screenshot.sh
+sudo cp spotlight/server.py spotlight/index.html spotlight/spotlight_ui.py spotlight/wallpaper.py spotlight/litemd.py spotlight/i18n.py spotlight/screenshot.sh spotlight/lock.sh /opt/ai-os/spotlight/
+sudo chmod +x /opt/ai-os/spotlight/spotlight_ui.py /opt/ai-os/spotlight/wallpaper.py /opt/ai-os/spotlight/litemd.py /opt/ai-os/spotlight/screenshot.sh /opt/ai-os/spotlight/lock.sh
 sudo ln -sf /opt/ai-os/spotlight/litemd.py /usr/local/bin/litemd
 sudo tee /usr/share/applications/litemd.desktop >/dev/null << 'EOF'
 [Desktop Entry]

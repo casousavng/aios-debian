@@ -1,7 +1,7 @@
 # AI-OS-Glass Openbox Theme
 border.width: 1
-padding.width: 10
-padding.height: 6
+padding.width: 12
+padding.height: 7
 window.handle.width: 0
 window.client.padding.width: 0
 window.client.padding.height: 0

@@ -263,7 +263,7 @@ SYSTEM_ACTIONS = [
     ("Ficheiros", "Abrir gestor de ficheiros (PCManFM)", "system-file-manager", lambda: subprocess.Popen(["pcmanfm", str(HOME)])),
     ("Navegador", "Abrir Chromium", "web-browser", lambda: subprocess.Popen(["chromium"])),
     ("Estado do Sistema", "Ver CPU, RAM e disco", "utilities-system-monitor", "ask:Mostra resumo rápido de CPU, RAM e disco desta máquina."),
-    ("Bloquear Ecrã", "Bloquear sessão (Super+L)", "system-lock-screen", lambda: subprocess.Popen(["i3lock", "-c", "0f1117"])),
+    ("Bloquear Ecrã", "Bloquear sessão (Super+L)", "system-lock-screen", lambda: subprocess.Popen(["/opt/ai-os/spotlight/lock.sh"])),
     ("Reiniciar VM", "Reiniciar o sistema", "system-reboot", lambda: subprocess.Popen(["sudo", "reboot"])),
     ("Desligar VM", "Desligar o sistema", "system-shutdown", lambda: subprocess.Popen(["sudo", "poweroff"])),
 ]
@@ -298,7 +298,7 @@ def get_system_actions():
         (*t("act_files"), "system-file-manager", lambda: subprocess.Popen(["pcmanfm", str(HOME)])),
         (*t("act_browser"), "web-browser", lambda: subprocess.Popen(["chromium"])),
         (*t("act_sysinfo"), "utilities-system-monitor", f"ask:{t('act_sysinfo_prompt')}"),
-        (*t("act_lock"), "system-lock-screen", lambda: subprocess.Popen(["i3lock", "-c", "0f1117"])),
+        (*t("act_lock"), "system-lock-screen", lambda: subprocess.Popen(["/opt/ai-os/spotlight/lock.sh"])),
         (*t("act_reboot"), "system-reboot", lambda: subprocess.Popen(["sudo", "reboot"])),
         (*t("act_poweroff"), "system-shutdown", lambda: subprocess.Popen(["sudo", "poweroff"])),
     ]
@@ -308,6 +308,7 @@ def get_slash_commands():
     return [
         ("/usage", t("slash_usage"), "ask_now:/usage"),
         ("/chats", t("slash_chats"), "local:chats"),
+        ("/clip", t("slash_clip"), "local:clip"),
         ("/model ", t("slash_model"), "fill:/model "),
         ("/mode ", t("slash_mode"), "fill:/mode "),
         ("/lang ", t("slash_lang"), "fill:/lang "),
@@ -519,7 +520,7 @@ class ControlPopover(Gtk.Window):
 
         self.lock_btn = Gtk.Button(label=t("lock_btn"))
         self.lock_btn.get_style_context().add_class("reply-btn")
-        self.lock_btn.connect("clicked", lambda *_: (self.hide(), subprocess.Popen(["i3lock", "-c", "0f1117"])))
+        self.lock_btn.connect("clicked", lambda *_: (self.hide(), subprocess.Popen(["/opt/ai-os/spotlight/lock.sh"])))
         card.pack_start(self.lock_btn, False, False, 0)
         self._hovering = False
         self.add_events(Gdk.EventMask.ENTER_NOTIFY_MASK | Gdk.EventMask.LEAVE_NOTIFY_MASK)
@@ -897,6 +898,9 @@ class SpotlightWindow(Gtk.Window):
         self.last_reply_md = ""
         self.history = self._load_history()
         self.hist_idx = len(self.history)
+        self.clip_history = []
+        self._clipboard = Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD)
+        self._clipboard.connect("owner-change", self._on_clip_change)
         self.results = []
         self._last_match_keys = None
         threading.Thread(target=self._prefetch_models, daemon=True).start()
@@ -1415,6 +1419,51 @@ class SpotlightWindow(Gtk.Window):
             return True
         return False
 
+    def _on_clip_change(self, clipboard, _event):
+        txt = clipboard.wait_for_text()
+        if not txt or not txt.strip():
+            return
+        txt = txt.strip()
+        if txt in self.clip_history:
+            self.clip_history.remove(txt)
+        self.clip_history.insert(0, txt)
+        self.clip_history = self.clip_history[:15]
+
+    def show_clip_history(self):
+        if not self.clip_history:
+            self.show_reply(t("no_clip"))
+            return
+        self.reply_box.hide()
+        matches = []
+        for idx, txt in enumerate(self.clip_history):
+            one_line = " ".join(txt.splitlines())[:75]
+            matches.append(("clip", one_line, f"{len(txt)} chars", "edit-paste", txt))
+        self.results = matches
+        self._last_match_keys = None
+        for child in self.listbox.get_children():
+            self.listbox.remove(child)
+        for _, title, sub, icon_name, _ in matches:
+            row = Gtk.ListBoxRow()
+            hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+            ico = Gtk.Image.new_from_icon_name(icon_name, Gtk.IconSize.LARGE_TOOLBAR)
+            ico.set_pixel_size(20)
+            hbox.pack_start(ico, False, False, 0)
+            box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=1)
+            t_lbl = Gtk.Label(label=title, xalign=0)
+            t_lbl.get_style_context().add_class("row-title")
+            s_lbl = Gtk.Label(label=sub, xalign=0)
+            s_lbl.get_style_context().add_class("row-sub")
+            box.pack_start(t_lbl, False, False, 0)
+            box.pack_start(s_lbl, False, False, 0)
+            hbox.pack_start(box, True, True, 0)
+            row.add(hbox)
+            self.listbox.add(row)
+        self.divider.show()
+        self.list_scroll.show_all()
+        first = self.listbox.get_row_at_index(0)
+        if first:
+            self.listbox.select_row(first)
+
     def show_chats_history(self):
         chats_dir = HOME / ".ai-os" / "chats"
         files = sorted(chats_dir.glob("*.md"), reverse=True)[:8]
@@ -1501,10 +1550,13 @@ class SpotlightWindow(Gtk.Window):
             if payload == "local:chats":
                 self.clear_query()
                 self.show_chats_history()
+            elif payload == "local:clip":
+                self.clear_query()
+                self.show_clip_history()
             elif payload == "local:lock":
                 self.clear_query()
                 self.hide_results()
-                subprocess.Popen(["i3lock", "-c", "0f1117"])
+                subprocess.Popen(["/opt/ai-os/spotlight/lock.sh"])
             elif payload == "local:screenshot":
                 self.clear_query()
                 self.hide_results()
@@ -1541,6 +1593,11 @@ class SpotlightWindow(Gtk.Window):
             end_iter = self.entry_buf.get_end_iter()
             self.entry_buf.place_cursor(end_iter)
             self.entry.grab_focus()
+        elif kind == "clip":
+            self._clipboard.set_text(payload, -1)
+            self.clear_query()
+            self.hide_results()
+            subprocess.Popen(["notify-send", "AI-OS", t("clip_copied")])
         elif kind == "chat":
             self.current_chat_id = payload
             chat_path = HOME / ".ai-os" / "chats" / f"{payload}.md"

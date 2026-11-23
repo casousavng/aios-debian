@@ -1,3 +1,7 @@
+export XCURSOR_THEME=Bibata-Modern-Classic
+export XCURSOR_SIZE=24
+xsetroot -cursor_name left_ptr &
+
 # Compositor leve (cantos arredondados/transparência Spotlight) + agente SPICE + notificações + Polkit
 picom --config "$HOME/.config/picom.conf" -b &
 spice-vdagent &
@@ -6,7 +10,7 @@ dunst &
 
 # Bloqueio automático após 10 min de inatividade e ao suspender
 xset s 600 600 &
-xss-lock -- i3lock -c 0f1117 &
+xss-lock -- /opt/ai-os/spotlight/lock.sh &
 
 # Ícones/pastas reais no ambiente de trabalho (sem painéis nem barras)
 pcmanfm --desktop &
