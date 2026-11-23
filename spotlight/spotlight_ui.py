@@ -1366,7 +1366,10 @@ class SpotlightWindow(Gtk.Window):
             self.start_agy_login()
 
     def _sync_chat_btn(self):
-        self.resume_chat_btn.set_visible(bool(self.current_chat_id) and not self.reply_box.is_visible())
+        if bool(self.current_chat_id) and not self.reply_box.is_visible():
+            self.resume_chat_btn.show_all()
+        else:
+            self.resume_chat_btn.hide()
 
     def _toggle_current_chat(self, *_):
         if self.reply_box.is_visible():
@@ -1376,12 +1379,19 @@ class SpotlightWindow(Gtk.Window):
         self._sync_chat_btn()
 
     def hide_results(self):
+        was_open = (
+            self.divider.is_visible()
+            or self.list_scroll.is_visible()
+            or self.draft_box.is_visible()
+            or self.reply_box.is_visible()
+        )
         self.divider.hide()
         self.list_scroll.hide()
         self.draft_box.hide()
         self.reply_box.hide()
         self._sync_chat_btn()
-        self.resize(720, 1)
+        if was_open:
+            self.resize(720, 1)
 
     def on_reply_loaded(self, view, event):
         if event != WebKit2.LoadEvent.FINISHED:
@@ -1446,6 +1456,7 @@ class SpotlightWindow(Gtk.Window):
             gi.require_version("WebKit2", "4.1")
             from gi.repository import WebKit2 as _WK2
             WebKit2 = _WK2
+        self._reply_ready = False
         self.reply_view = WebKit2.WebView()
         self.reply_view.set_background_color(Gdk.RGBA(0, 0, 0, 0))
         self.reply_view.get_settings().set_enable_javascript(True)
@@ -1488,8 +1499,14 @@ class SpotlightWindow(Gtk.Window):
             body = markdown.markdown(
                 render_md, extensions=["fenced_code", "tables", "sane_lists", "nl2br"]
             )
-        self.reply_view.load_html(REPLY_HTML.replace("%BODY%", body), "file:///")
-        self.reply_box.show_all()
+        if not self.reply_box.is_visible():
+            self.reply_box.show_all()
+        if getattr(self, "_reply_ready", False):
+            js = f"document.body.innerHTML = {json.dumps(body)}; window.scrollTo(0, document.body.scrollHeight); document.body.scrollHeight;"
+            self.reply_view.evaluate_javascript(js, -1, None, None, None, self._on_reply_height, None)
+        else:
+            self._reply_ready = True
+            self.reply_view.load_html(REPLY_HTML.replace("%BODY%", body), "file:///")
         self._sync_chat_btn()
 
     def refresh_status(self):
@@ -1627,12 +1644,15 @@ class SpotlightWindow(Gtk.Window):
             self.hide_results()
             return
 
-        self.reply_box.hide()
+        if self.reply_box.is_visible():
+            self.reply_box.hide()
+            self._sync_chat_btn()
         query_for_match = raw.lstrip() if raw.lstrip().startswith(("/", "#")) else text
         matches = self.build_matches(query_for_match)
         if not matches:
             self.results = []
             self._last_match_keys = None
+            was_open = self.list_scroll.is_visible() or self.draft_box.is_visible() or self.divider.is_visible()
             self.list_scroll.hide()
             if "\n" in raw or len(raw) > 54:
                 self.draft_view.show()
@@ -1643,7 +1663,8 @@ class SpotlightWindow(Gtk.Window):
             else:
                 self.draft_box.hide()
                 self.divider.hide()
-                self.resize(720, 1)
+                if was_open:
+                    self.resize(720, 1)
             return
 
         self.draft_box.hide()
