@@ -12,7 +12,7 @@ echo "=== [2/6] Instalar Xorg, Openbox, PCManFM, Spotlight GTK3 e utilitários d
 sudo DEBIAN_FRONTEND=noninteractive apt-get install -y \
   xorg xinit openbox pcmanfm picom wmctrl x11-xserver-utils papirus-icon-theme librsvg2-common \
   python3-gi python3-gi-cairo python3-cairo gir1.2-gtk-3.0 gir1.2-webkit2-4.1 python3-markdown spice-vdagent \
-  network-manager cups brightnessctl pipewire wireplumber dunst libnotify-bin podman ufw i3lock \
+  network-manager brightnessctl pipewire wireplumber dunst libnotify-bin podman ufw i3lock \
   gvfs udisks2 scrot lxpolkit xss-lock gpicview \
   fonts-inter fonts-jetbrains-mono earlyoom bibata-cursor-theme \
   python3 python3-fastapi python3-uvicorn python3-psutil \
@@ -65,8 +65,6 @@ cat << 'EOF' | sudo tee /etc/systemd/journald.conf.d/99-aios.conf >/dev/null
 SystemMaxUse=50M
 RuntimeMaxUse=20M
 EOF
-sudo systemctl disable --now cups.service || true
-sudo systemctl enable cups.socket || true
 sudo systemctl disable --now netavark-firewalld-reload.service || true
 sudo systemctl enable --now earlyoom || true
 
@@ -74,6 +72,7 @@ echo "=== [4/6] Instalar aplicação Spotlight e Antigravity CLI (agy) ==="
 if ! command -v agy >/dev/null 2>&1 && [ ! -x "$HOME/.local/bin/agy" ]; then
   curl -fsSL https://antigravity.google/cli/install.sh | bash || true
 fi
+[ -x "$HOME/.local/bin/agy" ] && sudo ln -sf "$HOME/.local/bin/agy" /usr/local/bin/agy || true
 sudo mkdir -p /opt/ai-os/spotlight
 sudo cp spotlight/server.py spotlight/index.html spotlight/spotlight_ui.py spotlight/wallpaper.py spotlight/litemd.py spotlight/i18n.py spotlight/screenshot.sh spotlight/lock.sh /opt/ai-os/spotlight/
 sudo chmod +x /opt/ai-os/spotlight/spotlight_ui.py /opt/ai-os/spotlight/wallpaper.py /opt/ai-os/spotlight/litemd.py /opt/ai-os/spotlight/screenshot.sh /opt/ai-os/spotlight/lock.sh
