@@ -144,6 +144,10 @@ def agy_auth_login_start():
                 time.sleep(0.2)
                 os.write(fd, b"\r")
                 sent_enter = True
+            osc = re.search(r"(https://accounts\.google\.com/[^\s\x07\x1b]+)", text)
+            if osc and "state=" in osc.group(1):
+                url = osc.group(1)
+                break
             m = re.search(r"─+\s*(https://accounts\.google\.com/.*?)─+", text, re.S)
             if m:
                 url = re.sub(r"\s+", "", m.group(1))
