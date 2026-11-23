@@ -403,6 +403,7 @@ def get_system_commands():
         ("#lang ", t("slash_lang"), "fill:#lang "),
         ("#kb ", t("slash_kb"), "fill:#kb "),
         ("#tz ", t("slash_tz"), "fill:#tz "),
+        ("#settings", t("slash_settings"), "local:settings"),
         ("#update", t("slash_update"), "local:update"),
         ("#lock", t("slash_lock"), "local:lock"),
         ("#reboot", t("act_reboot")[1], "local:reboot"),
@@ -902,113 +903,110 @@ class ControlPopover(Gtk.Window):
         GLib.idle_add(_apply)
 
 
-class SparklePopover(Gtk.Window):
-    def __init__(self, spotlight):
-        super().__init__(type=Gtk.WindowType.POPUP)
-        self.spotlight = spotlight
-        self.set_decorated(False)
-        self.set_keep_above(True)
-        self.set_app_paintable(True)
-        screen = self.get_screen()
-        visual = screen.get_rgba_visual()
-        if visual and screen.is_composited():
-            self.set_visual(visual)
-        self.connect("draw", clear_transparent)
+def open_settings_dialog(spotlight):
+    dlg = Gtk.Dialog(title=t("settings_title"), flags=0)
+    dlg.set_position(Gtk.WindowPosition.CENTER_ALWAYS)
+    dlg.set_keep_above(True)
+    dlg.set_default_size(460, -1)
+    box = dlg.get_content_area()
+    box.set_spacing(12)
+    box.set_border_width(16)
 
-        card = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
-        card.get_style_context().add_class("popover-card")
-        card.set_size_request(260, -1)
-        self.add(card)
+    # 1. AI Agent Section
+    box.add(Gtk.Label(label=f"<b>{t('settings_ai')}</b>", use_markup=True, xalign=0))
+    cur_model = ""
+    try:
+        s_file = HOME / ".gemini" / "antigravity-cli" / "settings.json"
+        if s_file.exists():
+            cur_model = json.loads(s_file.read_text(encoding="utf-8")).get("model", "")
+    except Exception:
+        pass
+    model_lbl = Gtk.Label(label=cur_model or "agy", xalign=0)
+    model_lbl.get_style_context().add_class("pop-sub")
+    box.add(model_lbl)
 
-        self.prof_lbl = Gtk.Label(label="AI", xalign=0)
-        self.prof_lbl.get_style_context().add_class("pop-title")
-        card.pack_start(self.prof_lbl, False, False, 0)
+    prof_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+    for key in ("fast", "deep", "plan"):
+        b = Gtk.Button(label=t(f"prof_{key}")[0])
+        def _set_prof(_, k=key):
+            def _w():
+                try:
+                    req = urllib.request.Request(
+                        f"{API_BASE}/api/agy/profile",
+                        data=json.dumps({"profile": k}).encode(),
+                        headers={"Content-Type": "application/json"},
+                        method="POST",
+                    )
+                    res = json.loads(urllib.request.urlopen(req, timeout=8).read().decode())
+                    GLib.idle_add(model_lbl.set_text, f"{res.get('model', '')} ({res.get('mode', 'auto')})")
+                except Exception:
+                    pass
+            threading.Thread(target=_w, daemon=True).start()
+        b.connect("clicked", _set_prof)
+        prof_row.pack_start(b, True, True, 0)
+    box.add(prof_row)
 
-        prof_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
-        self.prof_btns = {}
-        for key in ("fast", "deep", "plan"):
-            b = Gtk.Button(label=t(f"prof_{key}")[0])
-            b.get_style_context().add_class("reply-btn")
-            b.connect("clicked", lambda _, k=key: self._pick_profile(k))
-            self.prof_btns[key] = b
-            prof_row.pack_start(b, True, True, 0)
-        card.pack_start(prof_row, False, False, 0)
-
-        div = Gtk.Box()
-        div.get_style_context().add_class("divider")
-        card.pack_start(div, False, False, 0)
-
-        cur_fs = int(get_config().get("chat_font_size", 13))
-        self.fs_lbl = Gtk.Label(label=f"Texto: {cur_fs}px" if get_lang() == "pt" else f"Text: {cur_fs}px", xalign=0)
-        self.fs_lbl.get_style_context().add_class("pop-sub")
-        card.pack_start(self.fs_lbl, False, False, 0)
-
-        self.fs_scale = Gtk.Scale.new_with_range(Gtk.Orientation.HORIZONTAL, 11, 18, 1)
-        self.fs_scale.set_value(cur_fs)
-        self.fs_scale.set_draw_value(False)
-        self.fs_scale.connect("value-changed", self._on_font_changed)
-        card.pack_start(self.fs_scale, False, False, 0)
-
-        self._hovering = False
-        self.add_events(Gdk.EventMask.ENTER_NOTIFY_MASK | Gdk.EventMask.LEAVE_NOTIFY_MASK)
-        self.connect("enter-notify-event", self._on_enter)
-        self.connect("leave-notify-event", self._on_leave)
-
-    def _on_enter(self, *_):
-        self._hovering = True
-        return False
-
-    def _on_leave(self, _, event):
-        if event.detail == Gdk.NotifyType.INFERIOR:
-            return False
-        self._hovering = False
-        GLib.timeout_add(300, self._maybe_hide)
-        return False
-
-    def _maybe_hide(self):
-        if not self._hovering:
-            self.hide()
-        return False
-
-    def _pick_profile(self, key):
-        self.hide()
-        def _w():
-            try:
-                req = urllib.request.Request(
-                    f"{API_BASE}/api/agy/profile",
-                    data=json.dumps({"profile": key}).encode(),
-                    headers={"Content-Type": "application/json"},
-                    method="POST",
-                )
-                res = json.loads(urllib.request.urlopen(req, timeout=8).read().decode())
-                name = t(f"prof_{key}")[0]
-                GLib.idle_add(self.spotlight.show_reply, t("prof_set", name=name, model=res.get("model", "")))
-            except Exception as e:
-                GLib.idle_add(self.spotlight.show_reply, f"Erro: {e}")
-        threading.Thread(target=_w, daemon=True).start()
-
-    def _on_font_changed(self, scale):
-        px = int(scale.get_value())
-        self.fs_lbl.set_text(f"Texto: {px}px" if get_lang() == "pt" else f"Text: {px}px")
+    # 2. Appearance & Chat Section
+    box.add(Gtk.Label(label=f"<b>{t('settings_ui')}</b>", use_markup=True, xalign=0))
+    cur_fs = int(get_config().get("chat_font_size", 13))
+    fs_lbl = Gtk.Label(label=f"Texto do Chat: {cur_fs}px" if get_lang() == "pt" else f"Chat Text: {cur_fs}px", xalign=0)
+    box.add(fs_lbl)
+    fs_scale = Gtk.Scale.new_with_range(Gtk.Orientation.HORIZONTAL, 11, 18, 1)
+    fs_scale.set_value(cur_fs)
+    fs_scale.set_draw_value(False)
+    def _on_fs(s):
+        px = int(s.get_value())
+        fs_lbl.set_text(f"Texto do Chat: {px}px" if get_lang() == "pt" else f"Chat Text: {px}px")
         update_config(chat_font_size=px)
-        if self.spotlight.reply_view and getattr(self.spotlight, "_reply_ready", False):
-            self.spotlight.reply_view.evaluate_javascript(
+        if spotlight.reply_view and getattr(spotlight, "_reply_ready", False):
+            spotlight.reply_view.evaluate_javascript(
                 f"document.body.style.fontSize='{px}px'; document.body.scrollHeight;",
-                -1, None, None, None, self.spotlight._on_reply_height, None,
+                -1, None, None, None, spotlight._on_reply_height, None,
             )
+    fs_scale.connect("value-changed", _on_fs)
+    box.add(fs_scale)
 
-    def toggle_at(self):
-        if self.is_visible():
-            self.hide()
-            return
-        cur_fs = int(get_config().get("chat_font_size", 13))
-        self.fs_lbl.set_text(f"Texto: {cur_fs}px" if get_lang() == "pt" else f"Text: {cur_fs}px")
-        for key, b in self.prof_btns.items():
-            b.set_label(t(f"prof_{key}")[0])
-        wx, wy = self.spotlight.get_position()
-        self.show_all()
-        _, nat_h = self.get_preferred_height()
-        self.move(wx, max(36, wy - nat_h - 8))
+    lang_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+    for code, name in (("pt", "Português (PT-PT)"), ("en", "English (EN)")):
+        lb = Gtk.Button(label=name)
+        def _set_l(_, c=code):
+            if spotlight.topbar and not spotlight.topbar._confirm_lang_switch():
+                return
+            set_lang(c)
+            if spotlight.topbar:
+                spotlight.topbar.apply_lang()
+            spotlight.apply_lang()
+        lb.connect("clicked", _set_l)
+        lang_row.pack_start(lb, True, True, 0)
+    box.add(lang_row)
+
+    kb_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+    for code in ("pt", "us", "es", "fr", "gb"):
+        kb_b = Gtk.Button(label=f"KB: {code.upper()}")
+        kb_b.connect("clicked", lambda _, c=code: (subprocess.Popen(["setxkbmap", c]), update_config(kb_layout=c)))
+        kb_row.pack_start(kb_b, True, True, 0)
+    box.add(kb_row)
+
+    # 3. System Section
+    box.add(Gtk.Label(label=f"<b>{t('settings_sys')}</b>", use_markup=True, xalign=0))
+    sys_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+    if spotlight.topbar:
+        tz_b = Gtk.Button(label=t("tz_btn"))
+        tz_b.connect("clicked", lambda *_: (dlg.destroy(), GLib.idle_add(spotlight.topbar.popover._show_tz_dialog)))
+        sys_row.pack_start(tz_b, True, True, 0)
+    disp_b = Gtk.Button(label=t("displays_short"))
+    disp_b.connect("clicked", lambda *_: subprocess.Popen(["xrandr", "--auto"]))
+    sys_row.pack_start(disp_b, True, True, 0)
+    upd_b = Gtk.Button(label="#update")
+    upd_b.connect("clicked", lambda *_: (dlg.destroy(), subprocess.Popen(["/opt/ai-os/spotlight/update.sh"])))
+    sys_row.pack_start(upd_b, True, True, 0)
+    box.add(sys_row)
+
+    dlg.add_buttons(t("confirm"), Gtk.ResponseType.OK)
+    dlg.connect("response", lambda d, *_: d.destroy())
+    dlg.connect("delete-event", lambda d, *_: (d.destroy(), True)[1])
+    dlg.show_all()
+    dlg.present()
 
     def _set_audio_sink(self, sink_id):
         req = urllib.request.Request(
@@ -1483,15 +1481,14 @@ class SpotlightWindow(Gtk.Window):
         top_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
         top_row.get_style_context().add_class("search-row")
 
-        self.sparkle_popover = SparklePopover(self)
         icon_btn = Gtk.Button(label="✦")
         icon_btn.set_valign(Gtk.Align.CENTER)
         icon_btn.set_margin_top(2)
         icon_btn.set_can_focus(False)
         icon_btn.set_relief(Gtk.ReliefStyle.NONE)
         icon_btn.get_style_context().add_class("search-icon")
-        icon_btn.set_tooltip_text("AI & Texto")
-        icon_btn.connect("clicked", lambda *_: self.sparkle_popover.toggle_at())
+        icon_btn.set_tooltip_text(t("settings_title"))
+        icon_btn.connect("clicked", lambda *_: open_settings_dialog(self))
         top_row.pack_start(icon_btn, False, False, 0)
 
         self.entry_scroll = Gtk.ScrolledWindow()
@@ -2436,6 +2433,10 @@ class SpotlightWindow(Gtk.Window):
                 self.hide_results()
                 subprocess.Popen(["xrandr", "--auto"])
                 self.show_reply(t("displays_ok"))
+            elif payload == "local:settings":
+                self.clear_query()
+                self.hide_results()
+                open_settings_dialog(self)
             elif payload == "local:reboot":
                 self.clear_query()
                 self.hide_results()
