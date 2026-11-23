@@ -84,6 +84,50 @@ class AuthCodeRequest(BaseModel):
     code: str
 
 
+class WifiConnectRequest(BaseModel):
+    ssid: str
+    password: str = ""
+
+
+@app.get("/api/net/wifi")
+def list_wifi():
+    try:
+        out = subprocess.check_output(
+            ["nmcli", "-t", "-f", "ACTIVE,SSID,SIGNAL", "dev", "wifi", "list"],
+            stderr=subprocess.DEVNULL, text=True, timeout=5,
+        )
+        seen = set()
+        nets = []
+        for line in out.splitlines():
+            parts = line.split(":")
+            if len(parts) >= 3 and parts[1] and parts[1] not in seen:
+                seen.add(parts[1])
+                nets.append({"active": parts[0] == "yes", "ssid": parts[1], "signal": parts[2]})
+        return nets[:6]
+    except Exception:
+        return []
+
+
+@app.post("/api/net/wifi")
+def connect_wifi(req: WifiConnectRequest):
+    cmd = ["nmcli", "dev", "wifi", "connect", req.ssid]
+    if req.password:
+        cmd.extend(["password", req.password])
+    proc = subprocess.run(cmd, capture_output=True, text=True)
+    return {"ok": proc.returncode == 0, "msg": proc.stdout.strip() or proc.stderr.strip()}
+
+
+@app.post("/api/net/bt_toggle")
+def toggle_bt():
+    try:
+        show = subprocess.check_output(["bluetoothctl", "show"], text=True, stderr=subprocess.DEVNULL)
+        powered = "Powered: yes" in show
+        subprocess.run(["bluetoothctl", "power", "off" if powered else "on"], capture_output=True)
+        return {"ok": True, "powered": not powered}
+    except Exception:
+        return {"ok": False, "powered": False}
+
+
 @app.get("/api/agy/auth/status")
 def agy_auth_status():
     env = os.environ.copy()
@@ -242,6 +286,16 @@ def ask(req: PromptRequest):
     if prompt in ("/new", "/clear"):
         return {"chat_id": None, "reply": t("new_chat")}
 
+    if prompt == "/update":
+        upd_cmd = (
+            "sudo apt-get update && "
+            "sudo DEBIAN_FRONTEND=noninteractive apt-get upgrade -y && "
+            "sudo apt-get autoremove -y && sudo apt-get clean"
+        )
+        proc = subprocess.run(["bash", "-lc", upd_cmd], capture_output=True, text=True)
+        summary = "\n".join(proc.stdout.strip().splitlines()[-12:]) or proc.stderr.strip()
+        return {"chat_id": req.chat_id, "reply": f"```\n{summary}\n```"}
+
     if prompt.startswith("/model "):
         model_name = prompt.split(None, 1)[1].strip()
         cfg_path = HOME / ".gemini" / "antigravity-cli" / "settings.json"
@@ -351,7 +405,7 @@ def ask_stream(req: PromptRequest):
             yield json.dumps({"chat_id": chat_id, "reply": msg, "done": True}) + "\n"
             return
 
-        if Path(agent_bin).name == "opencode" or prompt.startswith(("/model ", "/mode ")) or prompt in ("/usage", "/models", "/agents", "/mcp", "/help", "/changelog"):
+        if Path(agent_bin).name == "opencode" or prompt.startswith(("/model ", "/mode ")) or prompt in ("/usage", "/models", "/agents", "/mcp", "/help", "/changelog", "/update"):
             res = ask(req)
             yield json.dumps({"chat_id": res["chat_id"], "reply": res["reply"], "done": True}) + "\n"
             return
@@ -377,10 +431,14 @@ def ask_stream(req: PromptRequest):
             etype = ev.get("event")
             if etype == "step_update":
                 su = ev.get("step_update", {})
+                stype = su.get("step_type", "")
                 delta = su.get("text_delta")
                 if delta:
                     full_reply.append(delta)
                     yield json.dumps({"delta": delta, "done": False}) + "\n"
+                elif stype and stype not in ("user_input", "agent_response") and not full_reply:
+                    tool_name = su.get("tool_name") or stype
+                    yield json.dumps({"status": tool_name, "done": False}) + "\n"
             elif etype == "result":
                 final_text = ev.get("result", {}).get("response", "").strip()
 

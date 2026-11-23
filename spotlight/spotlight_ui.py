@@ -312,6 +312,7 @@ def get_slash_commands():
         ("/lang ", t("slash_lang"), "fill:/lang "),
         ("/login", t("slash_login"), "local:login"),
         ("/logout", t("slash_logout"), "local:logout"),
+        ("/update", t("slash_update"), "ask_now:/update"),
         ("/lock", t("slash_lock"), "local:lock"),
         ("/models", t("slash_models"), "ask_now:/models"),
         ("/agents", t("slash_agents"), "ask_now:/agents"),
@@ -500,6 +501,14 @@ class ControlPopover(Gtk.Window):
         self.info_lbl.get_style_context().add_class("pop-sub")
         card.pack_start(self.info_lbl, False, False, 0)
 
+        self.wifi_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=3)
+        card.pack_start(self.wifi_box, False, False, 0)
+
+        self.bt_btn = Gtk.Button(label=f"{t('bt_label')}: Toggle")
+        self.bt_btn.get_style_context().add_class("reply-btn")
+        self.bt_btn.connect("clicked", self._on_bt_toggle)
+        card.pack_start(self.bt_btn, False, False, 0)
+
         self.lock_btn = Gtk.Button(label=t("lock_btn"))
         self.lock_btn.get_style_context().add_class("reply-btn")
         self.lock_btn.connect("clicked", lambda *_: (self.hide(), subprocess.Popen(["i3lock", "-c", "0f1117"])))
@@ -528,7 +537,42 @@ class ControlPopover(Gtk.Window):
     def refresh_labels(self):
         self.vol_lbl.set_text(t("volume"))
         self.bri_lbl.set_text(t("brightness"))
+        self.bt_btn.set_label(f"{t('bt_label')}: Toggle")
         self.lock_btn.set_label(t("lock_btn"))
+
+    def _on_bt_toggle(self, *_):
+        def _w():
+            try:
+                req = urllib.request.Request(f"{API_BASE}/api/net/bt_toggle", data=b"{}", method="POST")
+                res = json.loads(urllib.request.urlopen(req, timeout=4).read().decode())
+                state = "ON" if res.get("powered") else "OFF"
+                GLib.idle_add(self.bt_btn.set_label, f"{t('bt_label')}: {state}")
+            except Exception:
+                pass
+        threading.Thread(target=_w, daemon=True).start()
+
+    def _connect_wifi(self, ssid):
+        dlg = Gtk.Dialog(title=ssid, flags=0)
+        dlg.set_position(Gtk.WindowPosition.CENTER_ALWAYS)
+        dlg.add_buttons(t("cancel"), Gtk.ResponseType.CANCEL, t("confirm"), Gtk.ResponseType.OK)
+        box = dlg.get_content_area()
+        lbl = Gtk.Label(label=t("wifi_pw_prompt", ssid=ssid))
+        entry = Gtk.Entry()
+        entry.set_visibility(False)
+        box.add(lbl)
+        box.add(entry)
+        dlg.show_all()
+        resp = dlg.run()
+        pw = entry.get_text()
+        dlg.destroy()
+        if resp == Gtk.ResponseType.OK:
+            req = urllib.request.Request(
+                f"{API_BASE}/api/net/wifi",
+                data=json.dumps({"ssid": ssid, "password": pw}).encode(),
+                headers={"Content-Type": "application/json"},
+                method="POST",
+            )
+            threading.Thread(target=lambda: urllib.request.urlopen(req, timeout=15).read(), daemon=True).start()
 
     def on_vol_changed(self, scale):
         val = int(scale.get_value())
@@ -554,9 +598,27 @@ class ControlPopover(Gtk.Window):
             return
         try:
             ps = subprocess.check_output(["podman", "ps", "-q"], text=True, stderr=subprocess.DEVNULL).splitlines()
-            self.info_lbl.set_text(f"Contentores Podman ativos: {len(ps)}")
+            self.info_lbl.set_text(t("podman_active", n=len(ps)))
         except Exception:
-            self.info_lbl.set_text("Podman pronto")
+            self.info_lbl.set_text(t("podman_ready"))
+
+        for child in self.wifi_box.get_children():
+            self.wifi_box.remove(child)
+        try:
+            nets = json.loads(urllib.request.urlopen(f"{API_BASE}/api/net/wifi", timeout=2).read().decode())
+            if not nets:
+                wl = Gtk.Label(label=t("wifi_none"), xalign=0)
+                wl.get_style_context().add_class("pop-sub")
+                self.wifi_box.add(wl)
+            else:
+                for n in nets[:4]:
+                    mark = "● " if n["active"] else ""
+                    b = Gtk.Button(label=f"{mark}{n['ssid']} ({n['signal']}%)")
+                    b.get_style_context().add_class("reply-btn")
+                    b.connect("clicked", lambda _, s=n["ssid"]: self._connect_wifi(s))
+                    self.wifi_box.add(b)
+        except Exception:
+            pass
         self.move(geom.x + geom.width - 284, geom.y + 34)
         self.show_all()
 
@@ -1550,6 +1612,8 @@ class SpotlightWindow(Gtk.Window):
                         if ev.get("done"):
                             self.current_chat_id = ev.get("chat_id")
                             final_reply = ev.get("reply", "Concluído.")
+                        elif ev.get("status") and not acc:
+                            GLib.idle_add(self.show_reply, f"⚙ {t('step_tool', tool=ev['status'])}")
                         elif ev.get("delta"):
                             acc.append(ev["delta"])
                             now = time.monotonic()
