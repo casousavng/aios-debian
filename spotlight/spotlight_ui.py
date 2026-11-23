@@ -1451,7 +1451,7 @@ class SpotlightWindow(Gtk.Window):
         geom = monitor.get_geometry()
         hints = Gdk.Geometry()
         hints.max_width = 720
-        hints.max_height = max(240, min(480, geom.height - 96))
+        hints.max_height = max(240, min(420, geom.height - 140))
         self.set_geometry_hints(None, hints, Gdk.WindowHints.MAX_SIZE)
 
         self.show_all()
@@ -1599,7 +1599,7 @@ class SpotlightWindow(Gtk.Window):
         try:
             js_res = view.evaluate_javascript_finish(res)
             h = int(js_res.to_int32())
-            view.set_size_request(-1, max(36, min(h + 8, 360)))
+            view.set_size_request(-1, max(36, min(h + 8, 300)))
         except Exception:
             view.set_size_request(-1, 140)
 
@@ -1656,7 +1656,7 @@ class SpotlightWindow(Gtk.Window):
         self.reply_view.get_settings().set_enable_javascript(True)
         self.reply_view.connect("load-changed", self.on_reply_loaded)
         self.reply_view.set_size_request(-1, 48)
-        self.reply_box.pack_start(self.reply_view, True, True, 0)
+        self.reply_box.pack_start(self.reply_view, False, True, 0)
 
     def show_reply(self, text, live_stream=False):
         self._ensure_reply_view()
