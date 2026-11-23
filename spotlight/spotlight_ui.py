@@ -2011,13 +2011,14 @@ class SpotlightWindow(Gtk.Window):
         self.entry_buf = self.entry.get_buffer()
         self.entry_buf.connect("changed", self.on_search_changed)
         self.entry.connect("key-press-event", self.on_entry_key_press)
-        self.entry.drag_dest_set(Gtk.DestDefaults.ALL, [], Gdk.DragAction.COPY)
-        self.entry.drag_dest_add_uri_targets()
-        self.entry.connect("drag-motion", self._on_drag_motion)
+        drop_targets = [
+            Gtk.TargetEntry.new("text/uri-list", 0, 0),
+            Gtk.TargetEntry.new("x-special/gnome-copied-files", 0, 1),
+            Gtk.TargetEntry.new("text/plain", 0, 2),
+        ]
+        self.entry.drag_dest_set(Gtk.DestDefaults.ALL, drop_targets, Gdk.DragAction.COPY)
         self.entry.connect("drag-data-received", self._on_file_drop)
-        self.drag_dest_set(Gtk.DestDefaults.ALL, [], Gdk.DragAction.COPY)
-        self.drag_dest_add_uri_targets()
-        self.connect("drag-motion", self._on_drag_motion)
+        self.drag_dest_set(Gtk.DestDefaults.ALL, drop_targets, Gdk.DragAction.COPY)
         self.connect("drag-data-received", self._on_file_drop)
         self.entry_scroll.add(self.entry)
 
@@ -2804,13 +2805,16 @@ class SpotlightWindow(Gtk.Window):
         self.divider.show()
         self._show_list_scroll()
 
-    def _on_drag_motion(self, _widget, context, _x, _y, timestamp):
-        Gdk.drag_status(context, Gdk.DragAction.COPY, timestamp)
-        return True
-
     def _on_file_drop(self, widget, context, _x, _y, selection, _info, timestamp):
-        uris = selection.get_uris() or []
+        uris = list(selection.get_uris() or [])
         if not uris:
+            raw_txt = selection.get_text() or ""
+            for line in raw_txt.splitlines():
+                line = line.strip()
+                if line.startswith("file://"):
+                    uris.append(line)
+        if not uris:
+            Gtk.drag_finish(context, False, False, timestamp)
             return
         from urllib.parse import unquote, urlparse
         tokens = []
