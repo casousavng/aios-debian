@@ -1399,31 +1399,57 @@ def open_settings_dialog(spotlight):
         update_config(chat_font_size=px)
         if spotlight.reply_view and getattr(spotlight, "_reply_ready", False):
             spotlight.reply_view.evaluate_javascript(
-                f"document.body.style.fontSize='{px}px'; document.body.scrollHeight;",
+                f"document.body.style.fontSize='{px}px'; (() => {{ const r = document.createRange(); r.selectNodeContents(document.body); return Math.max(32, Math.ceil(r.getBoundingClientRect().height) + 12); }})();",
                 -1, None, None, None, spotlight._on_reply_height, None,
             )
     fs_scale.connect("value-changed", _on_fs)
+    spotlight._on_settings_font = lambda px: fs_scale.set_value(px)
     tab_ui.pack_start(fs_scale, False, False, 0)
     tab_ui.pack_start(prev_frame, False, False, 0)
 
+    lang_hdr = Gtk.Label(label="Idioma" if get_lang() == "pt" else "Language", xalign=0)
+    lang_hdr.get_style_context().add_class("pop-sub")
+    tab_ui.pack_start(lang_hdr, False, False, 0)
     lang_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+    lang_btns = {}
+    cur_lang = get_lang()
     for code, name in (("pt", "Português (PT-PT)"), ("en", "English (EN)")):
         lb = Gtk.Button(label=name)
+        if code == cur_lang:
+            lb.get_style_context().add_class("seg-btn-active")
         def _set_l(_, c=code):
             if spotlight.topbar and not spotlight.topbar._confirm_lang_switch():
                 return
             set_lang(c)
+            for k, btn in lang_btns.items():
+                ctx = btn.get_style_context()
+                ctx.add_class("seg-btn-active") if k == c else ctx.remove_class("seg-btn-active")
             if spotlight.topbar:
                 spotlight.topbar.apply_lang()
             spotlight.apply_lang()
         lb.connect("clicked", _set_l)
+        lang_btns[code] = lb
         lang_row.pack_start(lb, True, True, 0)
     tab_ui.pack_start(lang_row, False, False, 0)
 
+    kb_hdr = Gtk.Label(label="Teclado" if get_lang() == "pt" else "Keyboard", xalign=0)
+    kb_hdr.get_style_context().add_class("pop-sub")
+    tab_ui.pack_start(kb_hdr, False, False, 0)
     kb_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+    kb_btns = {}
+    cur_kb = get_config().get("kb_layout", "pt").lower()
     for code in ("pt", "us", "es", "fr", "gb"):
-        kb_b = Gtk.Button(label=f"KB: {code.upper()}")
-        kb_b.connect("clicked", lambda _, c=code: (subprocess.Popen(["setxkbmap", c]), update_config(kb_layout=c)))
+        kb_b = Gtk.Button(label=code.upper())
+        if code == cur_kb:
+            kb_b.get_style_context().add_class("seg-btn-active")
+        def _set_kb(_, c=code):
+            subprocess.Popen(["setxkbmap", c])
+            update_config(kb_layout=c)
+            for k, btn in kb_btns.items():
+                ctx = btn.get_style_context()
+                ctx.add_class("seg-btn-active") if k == c else ctx.remove_class("seg-btn-active")
+        kb_b.connect("clicked", _set_kb)
+        kb_btns[code] = kb_b
         kb_row.pack_start(kb_b, True, True, 0)
     tab_ui.pack_start(kb_row, False, False, 0)
     nb.append_page(tab_ui, Gtk.Label(label=t("settings_ui_tab")))
@@ -1442,8 +1468,12 @@ def open_settings_dialog(spotlight):
     nb.append_page(tab_sys, Gtk.Label(label=t("settings_sys")))
 
     dlg.add_buttons(t("close_btn"), Gtk.ResponseType.CLOSE)
-    dlg.connect("response", lambda d, *_: d.destroy())
-    dlg.connect("delete-event", lambda d, *_: (d.destroy(), True)[1])
+    def _close_dlg(d, *_):
+        spotlight._on_settings_font = None
+        d.destroy()
+        return True
+    dlg.connect("response", _close_dlg)
+    dlg.connect("delete-event", _close_dlg)
     dlg.show_all()
     dlg.present()
 
@@ -2045,6 +2075,12 @@ class SpotlightWindow(Gtk.Window):
         cur = int(get_config().get("chat_font_size", 13))
         px = max(8, min(18, cur + delta))
         update_config(chat_font_size=px)
+        cb = getattr(self, "_on_settings_font", None)
+        if cb:
+            try:
+                cb(px)
+            except Exception:
+                pass
         if self.reply_view and getattr(self, "_reply_ready", False):
             self.reply_view.evaluate_javascript(
                 f"document.body.style.fontSize='{px}px'; (() => {{ const r = document.createRange(); r.selectNodeContents(document.body); return Math.max(32, Math.ceil(r.getBoundingClientRect().height) + 12); }})();",
