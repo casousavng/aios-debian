@@ -133,13 +133,19 @@ button.status-trigger:hover, button.status-trigger:active {
     border-radius: 22px;
     padding: 8px 16px;
 }
-.draft-letter {
-    background-color: rgba(15, 20, 28, 0.65);
-    border: 1px solid rgba(103, 232, 249, 0.25);
-    border-radius: 12px;
-    padding: 8px 12px;
+.draft-letter,
+textview.draft-letter,
+textview.draft-letter text {
+    background-color: transparent;
+    background-image: none;
     color: #e2e8f0;
     font-size: 13px;
+}
+.draft-card {
+    background-color: rgba(15, 20, 28, 0.55);
+    border: 1px solid rgba(103, 232, 249, 0.25);
+    border-radius: 12px;
+    padding: 6px 10px;
 }
 .search-row {
     padding: 4px 4px;
@@ -1113,6 +1119,7 @@ class SpotlightWindow(Gtk.Window):
         self.draft_box = Gtk.ScrolledWindow()
         self.draft_box.set_shadow_type(Gtk.ShadowType.NONE)
         self.draft_box.get_style_context().add_class("clean-scroll")
+        self.draft_box.get_style_context().add_class("draft-card")
         self.draft_box.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
         self.draft_box.set_max_content_height(180)
         self.draft_box.set_propagate_natural_height(True)
