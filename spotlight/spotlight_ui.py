@@ -970,9 +970,19 @@ def open_settings_dialog(spotlight):
     fs_scale = Gtk.Scale.new_with_range(Gtk.Orientation.HORIZONTAL, 11, 18, 1)
     fs_scale.set_value(cur_fs)
     fs_scale.set_draw_value(False)
+
+    prev_frame = Gtk.Box()
+    prev_frame.get_style_context().add_class("draft-card")
+    prev_lbl = Gtk.Label(xalign=0)
+    prev_lbl.set_line_wrap(True)
+    prev_sample = "Exemplo de texto na resposta do chat." if get_lang() == "pt" else "Sample chat reply text preview."
+    prev_lbl.set_markup(f'<span size="{cur_fs * 1024}">{prev_sample}</span>')
+    prev_frame.pack_start(prev_lbl, True, True, 0)
+
     def _on_fs(s):
         px = int(s.get_value())
         fs_lbl.set_text(f"Texto do Chat: {px}px" if get_lang() == "pt" else f"Chat Text: {px}px")
+        prev_lbl.set_markup(f'<span size="{px * 1024}">{prev_sample}</span>')
         update_config(chat_font_size=px)
         if spotlight.reply_view and getattr(spotlight, "_reply_ready", False):
             spotlight.reply_view.evaluate_javascript(
@@ -981,6 +991,7 @@ def open_settings_dialog(spotlight):
             )
     fs_scale.connect("value-changed", _on_fs)
     tab_ui.pack_start(fs_scale, False, False, 0)
+    tab_ui.pack_start(prev_frame, False, False, 0)
 
     lang_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
     for code, name in (("pt", "Português (PT-PT)"), ("en", "English (EN)")):
