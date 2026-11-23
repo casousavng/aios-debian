@@ -40,22 +40,54 @@ REPLY_HTML = """<!DOCTYPE html>
   strong { color: #ffffff; }
   code { background: rgba(103, 232, 249, 0.14); color: #67e8f9; padding: 1px 5px;
     border-radius: 5px; font-family: monospace; font-size: 12px; }
-  pre { background: rgba(10, 14, 20, 0.55); border: 1px solid rgba(255,255,255,0.12);
-    border-radius: 8px; padding: 8px 10px; overflow-x: auto; margin: 0.45em 0; }
+  pre { position: relative; background: rgba(10, 14, 20, 0.55); border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 10px; padding: 26px 10px 10px; overflow-x: auto; margin: 0.45em 0; }
   pre code { background: transparent; padding: 0; color: #e2e8f0; }
+  .code-copy-btn { position: absolute; top: 5px; right: 6px; background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.16); border-radius: 6px; color: #cbd5e1;
+    font-size: 10px; padding: 1px 7px; cursor: pointer; font-family: system-ui, sans-serif; }
+  .code-copy-btn:hover { background: rgba(103, 232, 249, 0.20); color: #ffffff; }
   table { border-collapse: collapse; width: 100%; margin: 0.4em 0; font-size: 12px; }
   th, td { border: 1px solid rgba(255,255,255,0.14); padding: 4px 8px; text-align: left; }
   th { background: rgba(255,255,255,0.08); color: #ffffff; }
   a { color: #67e8f9; text-decoration: none; }
-  .msg-row { display: flex; width: 100%; margin: 6px 0; }
+  a:hover { text-decoration: underline; }
+  .msg-row { display: flex; width: 100%; margin: 8px 0; }
   .msg-user { justify-content: flex-end; }
   .msg-ai { justify-content: flex-start; }
-  .bubble { max-width: 92%; padding: 8px 12px; border-radius: 14px; }
-  .bubble-user { background: rgba(103, 232, 249, 0.16); border: 1px solid rgba(103, 232, 249, 0.36); color: #f8fafc; border-bottom-right-radius: 4px; }
-  .bubble-ai { background: rgba(255, 255, 255, 0.06); border: 1px solid rgba(255, 255, 255, 0.12); color: #e2e8f0; border-bottom-left-radius: 4px; }
+  .bubble { padding: 8px 12px; border-radius: 14px; }
+  .bubble-user { max-width: 84%; background: rgba(103, 232, 249, 0.14); border: 1px solid rgba(103, 232, 249, 0.34); color: #f8fafc; border-bottom-right-radius: 4px; }
+  .bubble-ai { width: 100%; max-width: 100%; background: transparent; border: none; padding: 2px 2px; color: #e2e8f0; }
   .bubble p:first-child { margin-top: 0; }
   .bubble p:last-child { margin-bottom: 0; }
-</style></head><body>%BODY%</body></html>"""
+  .file-chip { display: inline-block; background: rgba(15, 23, 42, 0.65); border: 1px solid rgba(103, 232, 249, 0.35);
+    color: #67e8f9; border-radius: 8px; padding: 1px 7px; font-size: 11px; margin: 0 2px; }
+  .thinking-pill { display: inline-flex; align-items: center; gap: 7px; color: #94a3b8; font-size: 12px; }
+  .live-dot { width: 7px; height: 7px; border-radius: 50%; background: #67e8f9;
+    animation: pulseDot 1.1s ease-in-out infinite; display: inline-block; }
+  @keyframes pulseDot { 0%, 100% { opacity: 0.35; transform: scale(0.85); } 50% { opacity: 1; transform: scale(1.15); } }
+</style>
+<script>
+window.enhanceReply = function() {
+  document.querySelectorAll('pre').forEach(function(pre) {
+    if (pre.querySelector('.code-copy-btn')) return;
+    var btn = document.createElement('button');
+    btn.className = 'code-copy-btn';
+    btn.textContent = 'Copiar';
+    btn.onclick = function(e) {
+      e.stopPropagation();
+      var code = pre.querySelector('code');
+      var txt = code ? code.innerText : pre.innerText;
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(txt).catch(function(){});
+      }
+      btn.textContent = '✓';
+      setTimeout(function() { btn.textContent = 'Copiar'; }, 1200);
+    };
+    pre.appendChild(btn);
+  });
+};
+</script></head><body>%BODY%<script>window.enhanceReply();</script></body></html>"""
 
 API_BASE = "http://127.0.0.1:8765"
 HOME = Path.home()
@@ -1997,7 +2029,7 @@ class SpotlightWindow(Gtk.Window):
         monitor = display.get_primary_monitor() or display.get_monitor(0)
         geom = monitor.get_geometry()
         hints = Gdk.Geometry()
-        hints.max_width = 720
+        hints.max_width = 820
         hints.max_height = max(240, min(540, geom.height - 80))
         self.set_geometry_hints(None, hints, Gdk.WindowHints.MAX_SIZE)
 
@@ -2040,7 +2072,7 @@ class SpotlightWindow(Gtk.Window):
         monitor = display.get_primary_monitor() or display.get_monitor(0)
         geom = monitor.get_geometry()
         alloc = self.get_allocation()
-        w = 720
+        w = alloc.width if alloc.width > 1 else 720
         h = alloc.height if alloc.height > 1 else 48
         x = geom.x + (geom.width - w) // 2
         y = geom.y + geom.height - h - 24
@@ -2132,6 +2164,7 @@ class SpotlightWindow(Gtk.Window):
         self._sync_chat_btn()
 
     def _show_list_scroll(self):
+        self.card.set_size_request(720, -1)
         self.list_scroll.show_all()
         first = self.listbox.get_row_at_index(0)
         if first:
@@ -2151,6 +2184,7 @@ class SpotlightWindow(Gtk.Window):
         self.reply_box.hide()
         self._sync_chat_btn()
         if was_open:
+            self.card.set_size_request(720, -1)
             self.resize(720, 1)
 
     def on_reply_loaded(self, view, event):
@@ -2158,7 +2192,7 @@ class SpotlightWindow(Gtk.Window):
             return
         self._reply_ready = True
         self._reply_loading = False
-        measure_js = "(() => { const r = document.createRange(); r.selectNodeContents(document.body); return Math.max(32, Math.ceil(r.getBoundingClientRect().height) + 12); })()"
+        measure_js = "window.enhanceReply(); (() => { const r = document.createRange(); r.selectNodeContents(document.body); return Math.max(32, Math.ceil(r.getBoundingClientRect().height) + 12); })()"
         pending = getattr(self, "_pending_reply_update", None)
         if pending:
             self._pending_reply_update = None
@@ -2178,7 +2212,9 @@ class SpotlightWindow(Gtk.Window):
             self.reply_scroll.set_min_content_height(max(32, min(h, 440)))
         except Exception:
             self.reply_scroll.set_min_content_height(140)
-        self.resize(720, 1)
+        w = 820 if self.reply_box.is_visible() else 720
+        self.card.set_size_request(w, -1)
+        self.resize(w, 1)
 
     def _load_history(self):
         try:
@@ -2232,7 +2268,26 @@ class SpotlightWindow(Gtk.Window):
         self.reply_view.set_background_color(Gdk.RGBA(0, 0, 0, 0))
         self.reply_view.get_settings().set_enable_javascript(True)
         self.reply_view.connect("load-changed", self.on_reply_loaded)
+        self.reply_view.connect("decide-policy", self._on_reply_policy)
         self.reply_scroll.add(self.reply_view)
+
+    def _on_reply_policy(self, _view, decision, d_type):
+        if d_type == WebKit2.PolicyDecisionType.NAVIGATION_ACTION:
+            uri = decision.get_navigation_action().get_request().get_uri() or ""
+            if uri.startswith(("http://", "https://")):
+                decision.ignore()
+                subprocess.Popen(["chromium", uri])
+                return True
+            if uri.startswith("file://") and uri != "file:///":
+                from urllib.parse import unquote, urlparse
+                fpath = unquote(urlparse(uri).path)
+                decision.ignore()
+                if fpath.endswith(".md"):
+                    subprocess.Popen(["/opt/ai-os/spotlight/litemd.py", fpath])
+                else:
+                    subprocess.Popen(["xdg-open", fpath])
+                return True
+        return False
 
     def show_reply(self, text, live_stream=False):
         self._ensure_reply_view()
@@ -2262,7 +2317,20 @@ class SpotlightWindow(Gtk.Window):
                 role = "user" if parts[i] == "Utilizador" else "ai"
                 content = parts[i + 1].strip()
                 if content:
-                    html_part = markdown.markdown(content, extensions=["fenced_code", "tables", "sane_lists", "nl2br"])
+                    if role == "user":
+                        import html as _html
+                        def _chip(m):
+                            full = m.group(1)
+                            bname = full.rstrip("/").split("/")[-1] or full
+                            return f'<span class="file-chip" title="{_html.escape(full)}">📄 {_html.escape(bname)}</span>'
+                        content_fmt = re.sub(r"@([^\s]+)", _chip, _html.escape(content)).replace("\n", "<br>")
+                        html_part = f"<p>{content_fmt}</p>"
+                    else:
+                        if live_stream and i + 2 >= len(parts) and (content.startswith("⚙ ") or content == t("processing")):
+                            import html as _html
+                            html_part = f'<span class="thinking-pill"><span class="live-dot"></span>{_html.escape(content.lstrip("⚙ "))}</span>'
+                        else:
+                            html_part = markdown.markdown(content, extensions=["fenced_code", "tables", "sane_lists", "nl2br"])
                     chunks.append(f'<div class="msg-row msg-{role}"><div class="bubble bubble-{role}">{html_part}</div></div>')
                 i += 2
             body = "\n".join(chunks)
@@ -2274,7 +2342,7 @@ class SpotlightWindow(Gtk.Window):
         if not self.reply_box.is_visible():
             self.reply_box.show_all()
         if getattr(self, "_reply_ready", False):
-            js = f"document.body.style.fontSize='{fsize}px'; document.body.innerHTML = {json.dumps(body)}; window.scrollTo(0, document.body.scrollHeight); (() => {{ const r = document.createRange(); r.selectNodeContents(document.body); return Math.max(32, Math.ceil(r.getBoundingClientRect().height) + 12); }})();"
+            js = f"document.body.style.fontSize='{fsize}px'; document.body.innerHTML = {json.dumps(body)}; window.enhanceReply(); window.scrollTo(0, document.body.scrollHeight); (() => {{ const r = document.createRange(); r.selectNodeContents(document.body); return Math.max(32, Math.ceil(r.getBoundingClientRect().height) + 12); }})();"
             self.reply_view.evaluate_javascript(js, -1, None, None, None, self._on_reply_height, None)
         elif getattr(self, "_reply_loading", False):
             self._pending_reply_update = (fsize, body)
