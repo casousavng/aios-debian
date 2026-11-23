@@ -24,7 +24,8 @@ from gi.repository import Gdk, GLib, Gtk, Pango, WebKit2  # noqa: E402
 REPLY_HTML = """<!DOCTYPE html>
 <html><head><meta charset="utf-8"><style>
   html, body { background: transparent; margin: 0; padding: 0; color: #f1f5f9;
-    font-family: system-ui, -apple-system, sans-serif; font-size: 13px; line-height: 1.5; }
+    font-family: system-ui, -apple-system, sans-serif; font-size: 13px; line-height: 1.5;
+    overflow-wrap: anywhere; word-break: break-word; max-width: 100%; overflow-x: hidden; }
   body { padding: 4px 6px; }
   h1, h2, h3 { color: #ffffff; margin: 0.6em 0 0.3em; font-size: 14px; font-weight: 650; }
   p { margin: 0.35em 0; }
@@ -1431,6 +1432,7 @@ class SpotlightWindow(Gtk.Window):
 
     def start_agy_login(self):
         self.show_reply(t("processing"))
+        Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD).set_text("", -1)
 
         def _worker():
             try:
@@ -1440,12 +1442,22 @@ class SpotlightWindow(Gtk.Window):
                 if res.get("ok"):
                     self.awaiting_auth_code = True
                     GLib.idle_add(self.show_reply, t("login_started"))
+                    GLib.timeout_add(400, self._poll_auth_clipboard)
                 else:
                     GLib.idle_add(self.show_reply, t("login_fail", err=res.get("error", "unknown")))
             except Exception as e:
                 GLib.idle_add(self.show_reply, t("login_fail", err=e))
 
         threading.Thread(target=_worker, daemon=True).start()
+
+    def _poll_auth_clipboard(self):
+        if not self.awaiting_auth_code:
+            return False
+        clip = (Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD).wait_for_text() or "").strip()
+        if clip.startswith("4/0") and len(clip) > 20:
+            self.submit_agy_code(clip)
+            return False
+        return True
 
     def submit_agy_code(self, code):
         self.awaiting_auth_code = False
