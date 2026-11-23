@@ -175,11 +175,23 @@ scrollbar.mini-scroll slider {
     min-width: 4px;
     min-height: 8px;
 }
-.search-icon {
+.search-icon,
+button.search-icon {
+    background: transparent;
+    background-image: none;
+    border: none;
+    box-shadow: none;
     color: #67e8f9;
     font-size: 20px;
     font-weight: 700;
-    margin-right: 10px;
+    padding: 0;
+    margin: 0 8px 0 0;
+    min-width: 0;
+    min-height: 0;
+}
+button.search-icon:hover {
+    background: transparent;
+    color: #a5f3fc;
 }
 textview.search-input, textview.search-input text {
     background: transparent;
@@ -1322,7 +1334,7 @@ class SpotlightWindow(Gtk.Window):
         self.reply_scroll.get_style_context().add_class("clean-scroll")
         self.reply_scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
         self.reply_scroll.set_min_content_height(48)
-        self.reply_scroll.set_max_content_height(320)
+        self.reply_scroll.set_max_content_height(440)
         self.reply_scroll.set_propagate_natural_height(True)
         self.reply_box.pack_start(self.reply_scroll, True, True, 0)
         self.reply_view = None
@@ -1363,12 +1375,11 @@ class SpotlightWindow(Gtk.Window):
         top_row.get_style_context().add_class("search-row")
 
         icon_btn = Gtk.Button(label="✦")
-        icon_btn.set_valign(Gtk.Align.END)
-        icon_btn.set_margin_bottom(2)
+        icon_btn.set_valign(Gtk.Align.CENTER)
         icon_btn.set_can_focus(False)
         icon_btn.set_relief(Gtk.ReliefStyle.NONE)
         icon_btn.get_style_context().add_class("search-icon")
-        icon_btn.set_tooltip_text("AI Profile (Rápido / Profundo / Só Planear)")
+        icon_btn.set_tooltip_text("AI & Texto")
         icon_btn.connect("clicked", self.toggle_ai_profiles)
         top_row.pack_start(icon_btn, False, False, 0)
 
@@ -1430,7 +1441,7 @@ class SpotlightWindow(Gtk.Window):
         top_row.pack_start(self.mini_scroll, False, False, 0)
 
         self.send_btn = Gtk.Button(label="→")
-        self.send_btn.set_valign(Gtk.Align.END)
+        self.send_btn.set_valign(Gtk.Align.CENTER)
         self.send_btn.set_size_request(38, 28)
         self.send_btn.get_style_context().add_class("send-arrow")
         self.send_btn.set_can_focus(False)
@@ -1438,7 +1449,7 @@ class SpotlightWindow(Gtk.Window):
         top_row.pack_end(self.send_btn, False, False, 0)
 
         self.stop_btn = Gtk.Button(label="■")
-        self.stop_btn.set_valign(Gtk.Align.END)
+        self.stop_btn.set_valign(Gtk.Align.CENTER)
         self.stop_btn.set_size_request(38, 28)
         self.stop_btn.get_style_context().add_class("send-arrow")
         self.stop_btn.set_can_focus(False)
@@ -1463,7 +1474,7 @@ class SpotlightWindow(Gtk.Window):
         geom = monitor.get_geometry()
         hints = Gdk.Geometry()
         hints.max_width = 720
-        hints.max_height = max(240, min(420, geom.height - 140))
+        hints.max_height = max(240, min(540, geom.height - 80))
         self.set_geometry_hints(None, hints, Gdk.WindowHints.MAX_SIZE)
 
         self.show_all()
@@ -1611,7 +1622,7 @@ class SpotlightWindow(Gtk.Window):
         try:
             js_res = view.evaluate_javascript_finish(res)
             h = int(js_res.to_int32())
-            self.reply_scroll.set_min_content_height(max(48, min(h + 8, 320)))
+            self.reply_scroll.set_min_content_height(max(48, min(h + 8, 440)))
         except Exception:
             self.reply_scroll.set_min_content_height(140)
 
@@ -1704,14 +1715,16 @@ class SpotlightWindow(Gtk.Window):
             body = markdown.markdown(
                 render_md, extensions=["fenced_code", "tables", "sane_lists", "nl2br"]
             )
+        fsize = int(get_config().get("chat_font_size", 13))
         if not self.reply_box.is_visible():
             self.reply_box.show_all()
         if getattr(self, "_reply_ready", False):
-            js = f"document.body.innerHTML = {json.dumps(body)}; window.scrollTo(0, document.body.scrollHeight); document.body.scrollHeight;"
+            js = f"document.body.style.fontSize='{fsize}px'; document.body.innerHTML = {json.dumps(body)}; window.scrollTo(0, document.body.scrollHeight); document.body.scrollHeight;"
             self.reply_view.evaluate_javascript(js, -1, None, None, None, self._on_reply_height, None)
         else:
             self._reply_ready = True
-            self.reply_view.load_html(REPLY_HTML.replace("%BODY%", body), "file:///")
+            html_out = REPLY_HTML.replace("font-size: 13px;", f"font-size: {fsize}px;").replace("%BODY%", body)
+            self.reply_view.load_html(html_out, "file:///")
         self._sync_chat_btn()
 
     def refresh_status(self):
@@ -1976,6 +1989,9 @@ class SpotlightWindow(Gtk.Window):
             ("profile", *t("prof_fast"), "media-playback-start", "fast"),
             ("profile", *t("prof_deep"), "preferences-system", "deep"),
             ("profile", *t("prof_plan"), "document-edit", "plan"),
+            ("fontsize", *t("font_small"), "zoom-out", 12),
+            ("fontsize", *t("font_normal"), "zoom-original", 13),
+            ("fontsize", *t("font_large"), "zoom-in", 15),
         ]
         self.results = matches
         self._last_match_keys = "__profiles__"
@@ -2162,6 +2178,9 @@ class SpotlightWindow(Gtk.Window):
             ("profile", *t("prof_fast"), "media-playback-start", "fast"),
             ("profile", *t("prof_deep"), "preferences-system", "deep"),
             ("profile", *t("prof_plan"), "document-edit", "plan"),
+            ("fontsize", *t("font_small"), "zoom-out", 12),
+            ("fontsize", *t("font_normal"), "zoom-original", 13),
+            ("fontsize", *t("font_large"), "zoom-in", 15),
         ]
         self.results = matches
         self._last_match_keys = "__profiles__"
@@ -2367,6 +2386,11 @@ class SpotlightWindow(Gtk.Window):
                 except Exception as e:
                     GLib.idle_add(self.show_reply, f"Erro: {e}")
             threading.Thread(target=_set_p, daemon=True).start()
+        elif kind == "fontsize":
+            update_config(chat_font_size=payload)
+            self.clear_query()
+            self.hide_results()
+            self.show_reply(t("font_set", px=payload))
         elif kind == "clip":
             self._clipboard.set_text(payload, -1)
             self.clear_query()
