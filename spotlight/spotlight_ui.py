@@ -598,7 +598,6 @@ class TopBarWindow(Gtk.Window):
         self.logo_lbl.set_valign(Gtk.Align.CENTER)
         self.logo_lbl.get_style_context().add_class("topbar-logo")
         self.logo_btn.add(self.logo_lbl)
-        self.logo_btn.set_tooltip_text(t("show_windows_tip"))
         self.logo_btn.add_events(Gdk.EventMask.ENTER_NOTIFY_MASK | Gdk.EventMask.LEAVE_NOTIFY_MASK)
         self.logo_btn.connect("enter-notify-event", self._on_logo_enter)
         self.logo_btn.connect("leave-notify-event", self._on_logo_leave)
@@ -743,7 +742,6 @@ class TopBarWindow(Gtk.Window):
 
     def apply_lang(self):
         self.lang_btn.set_label(get_lang().upper())
-        self.logo_btn.set_tooltip_text(t("show_windows_tip"))
         self.popover.refresh_labels()
         if self.win_popover.is_visible():
             self.win_popover.hide()
