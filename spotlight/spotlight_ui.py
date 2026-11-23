@@ -303,9 +303,11 @@ def get_system_actions():
 def get_slash_commands():
     return [
         ("/usage", t("slash_usage"), "ask_now:/usage"),
+        ("/chats", t("slash_chats"), "local:chats"),
         ("/model ", t("slash_model"), "fill:/model "),
         ("/mode ", t("slash_mode"), "fill:/mode "),
         ("/lang ", t("slash_lang"), "fill:/lang "),
+        ("/lock", t("slash_lock"), "local:lock"),
         ("/models", t("slash_models"), "ask_now:/models"),
         ("/agents", t("slash_agents"), "ask_now:/agents"),
         ("/mcp", t("slash_mcp"), "ask_now:/mcp"),
@@ -1325,7 +1327,14 @@ class SpotlightWindow(Gtk.Window):
             self.clear_query()
             self.hide_results()
         elif kind == "slash":
-            if payload.startswith("ask_now:"):
+            if payload == "local:chats":
+                self.clear_query()
+                self.show_chats_history()
+            elif payload == "local:lock":
+                self.clear_query()
+                self.hide_results()
+                subprocess.Popen(["i3lock", "-c", "0f1117"])
+            elif payload.startswith("ask_now:"):
                 cmd_txt = payload.split(":", 1)[1]
                 self.clear_query()
                 self.hide_results()

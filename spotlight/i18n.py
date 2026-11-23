@@ -44,6 +44,8 @@ STRINGS = {
         "slash_clear": "Limpar sessão atual do agy",
         "slash_compact": "Compactar contexto da conversa atual",
         "slash_plan": "Pedir plano antes de executar",
+        "slash_chats": "Abrir lista de conversas guardadas (Ctrl+H)",
+        "slash_lock": "Bloquear ecrã imediatamente (Super+L)",
         "slash_lang": "Alternar idioma (pt / en)",
         "slash_changelog": "Ver novidades da versão do agy",
         "slash_help": "Mostrar ajuda do agy CLI",
@@ -89,6 +91,8 @@ STRINGS = {
         "slash_clear": "Clear current agy session",
         "slash_compact": "Compact current conversation context",
         "slash_plan": "Request a plan before executing",
+        "slash_chats": "Open saved conversations list (Ctrl+H)",
+        "slash_lock": "Lock screen immediately (Super+L)",
         "slash_lang": "Switch language (pt / en)",
         "slash_changelog": "Show agy version changelog",
         "slash_help": "Show agy CLI help",
@@ -122,6 +126,18 @@ def set_lang(lang: str) -> str:
         pass
     data["lang"] = lang
     CONFIG_PATH.write_text(json.dumps(data, indent=2), encoding="utf-8")
+    sys_locale = "pt_PT.UTF-8" if lang == "pt" else "en_US.UTF-8"
+    os.environ["LANG"] = sys_locale
+    os.environ["LC_ALL"] = sys_locale
+    try:
+        import subprocess
+        subprocess.Popen(["sudo", "localectl", "set-locale", f"LANG={sys_locale}"])
+        subprocess.Popen(
+            f"pkill -x pcmanfm; LANG={sys_locale} LC_ALL={sys_locale} setsid pcmanfm --desktop </dev/null >/dev/null 2>&1 & sleep 0.6; python3 /opt/ai-os/spotlight/wallpaper.py",
+            shell=True,
+        )
+    except Exception:
+        pass
     return lang
 
 
