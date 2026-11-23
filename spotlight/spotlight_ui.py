@@ -347,27 +347,27 @@ button.reply-btn:hover {
     font-size: 13px;
 }
 scale {
-    padding: 8px 0;
+    padding: 3px 2px;
 }
 scale trough {
     background-color: rgba(255, 255, 255, 0.14);
     border-radius: 999px;
-    min-height: 8px;
+    min-height: 4px;
     border: none;
 }
 scale highlight {
     background-image: linear-gradient(90deg, #0891b2, #67e8f9);
     background-color: #67e8f9;
     border-radius: 999px;
-    min-height: 8px;
+    min-height: 4px;
 }
 scale slider {
     background-image: none;
     background-color: #f8fafc;
-    border: 2px solid #67e8f9;
+    border: 1.5px solid #67e8f9;
     border-radius: 999px;
-    min-width: 16px;
-    min-height: 16px;
+    min-width: 12px;
+    min-height: 12px;
     margin: -4px 0;
     box-shadow: none;
 }
@@ -1908,6 +1908,11 @@ class SpotlightWindow(Gtk.Window):
         self.entry_buf = self.entry.get_buffer()
         self.entry_buf.connect("changed", self.on_search_changed)
         self.entry.connect("key-press-event", self.on_entry_key_press)
+        self.entry.drag_dest_add_uri_targets()
+        self.entry.connect("drag-data-received", self._on_file_drop)
+        self.drag_dest_set(Gtk.DestDefaults.ALL, [], Gdk.DragAction.COPY)
+        self.drag_dest_add_uri_targets()
+        self.connect("drag-data-received", self._on_file_drop)
         self.entry_scroll.add(self.entry)
 
         self.draft_view = Gtk.TextView.new_with_buffer(self.entry_buf)
@@ -2640,6 +2645,25 @@ class SpotlightWindow(Gtk.Window):
             self.listbox.add(row)
         self.divider.show()
         self._show_list_scroll()
+
+    def _on_file_drop(self, widget, context, _x, _y, selection, _info, timestamp):
+        uris = selection.get_uris() or []
+        if not uris:
+            return
+        from urllib.parse import unquote, urlparse
+        tokens = []
+        home_prefix = str(HOME) + "/"
+        for uri in uris:
+            if uri.startswith("file://"):
+                p = unquote(urlparse(uri).path)
+                rel = p[len(home_prefix):] if p.startswith(home_prefix) else p
+                tokens.append(f"@{rel}")
+        if tokens:
+            self.entry_buf.insert_at_cursor(" ".join(tokens) + " ")
+            self.focus_spotlight()
+            if widget is self.entry:
+                widget.stop_emission_by_name("drag-data-received")
+        Gtk.drag_finish(context, bool(tokens), False, timestamp)
 
     def on_entry_key_press(self, _, event):
         if (event.state & Gdk.ModifierType.CONTROL_MASK) and event.keyval in (Gdk.KEY_v, Gdk.KEY_V):
