@@ -1756,15 +1756,16 @@ class SpotlightWindow(Gtk.Window):
             return
         self._reply_ready = True
         self._reply_loading = False
+        measure_js = "(() => { const r = document.createRange(); r.selectNodeContents(document.body); return Math.max(48, Math.ceil(r.getBoundingClientRect().height) + 22); })()"
         pending = getattr(self, "_pending_reply_update", None)
         if pending:
             self._pending_reply_update = None
             fsize, body = pending
-            js = f"document.body.style.fontSize='{fsize}px'; document.body.innerHTML = {json.dumps(body)}; window.scrollTo(0, document.body.scrollHeight); document.body.scrollHeight;"
+            js = f"document.body.style.fontSize='{fsize}px'; document.body.innerHTML = {json.dumps(body)}; window.scrollTo(0, document.body.scrollHeight); {measure_js};"
             view.evaluate_javascript(js, -1, None, None, None, self._on_reply_height, None)
             return
         view.evaluate_javascript(
-            "window.scrollTo(0, document.body.scrollHeight); document.body.scrollHeight",
+            f"window.scrollTo(0, document.body.scrollHeight); {measure_js}",
             -1, None, None, None, self._on_reply_height, None
         )
 
@@ -1772,9 +1773,10 @@ class SpotlightWindow(Gtk.Window):
         try:
             js_res = view.evaluate_javascript_finish(res)
             h = int(js_res.to_int32())
-            self.reply_scroll.set_min_content_height(max(48, min(h + 8, 440)))
+            self.reply_scroll.set_min_content_height(max(48, min(h, 440)))
         except Exception:
             self.reply_scroll.set_min_content_height(140)
+        self.resize(720, 1)
 
     def _load_history(self):
         try:
@@ -1835,6 +1837,7 @@ class SpotlightWindow(Gtk.Window):
         self.last_reply_md = text
         self.divider.show()
         self.list_scroll.hide()
+        self.draft_box.hide()
         render_md = text
         if self.current_chat_id:
             chat_path = HOME / ".ai-os" / "chats" / f"{self.current_chat_id}.md"
@@ -1869,7 +1872,7 @@ class SpotlightWindow(Gtk.Window):
         if not self.reply_box.is_visible():
             self.reply_box.show_all()
         if getattr(self, "_reply_ready", False):
-            js = f"document.body.style.fontSize='{fsize}px'; document.body.innerHTML = {json.dumps(body)}; window.scrollTo(0, document.body.scrollHeight); document.body.scrollHeight;"
+            js = f"document.body.style.fontSize='{fsize}px'; document.body.innerHTML = {json.dumps(body)}; window.scrollTo(0, document.body.scrollHeight); (() => {{ const r = document.createRange(); r.selectNodeContents(document.body); return Math.max(48, Math.ceil(r.getBoundingClientRect().height) + 22); }})();"
             self.reply_view.evaluate_javascript(js, -1, None, None, None, self._on_reply_height, None)
         elif getattr(self, "_reply_loading", False):
             self._pending_reply_update = (fsize, body)
