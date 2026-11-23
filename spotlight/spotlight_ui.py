@@ -1117,13 +1117,7 @@ class SpotlightWindow(Gtk.Window):
         self.draft_box.set_max_content_height(180)
         self.draft_box.set_propagate_natural_height(True)
         self.draft_box.set_no_show_all(True)
-        self.draft_lbl = Gtk.Label(xalign=0)
-        self.draft_lbl.set_line_wrap(True)
-        self.draft_lbl.set_line_wrap_mode(Pango.WrapMode.WORD_CHAR)
-        self.draft_lbl.set_max_width_chars(76)
-        self.draft_lbl.set_selectable(True)
-        self.draft_lbl.get_style_context().add_class("draft-letter")
-        self.draft_box.add(self.draft_lbl)
+        self.draft_view = None
         self.card.pack_start(self.draft_box, False, False, 0)
 
         self.divider = Gtk.Box()
@@ -1161,6 +1155,15 @@ class SpotlightWindow(Gtk.Window):
         self.entry_buf.connect("changed", self.on_search_changed)
         self.entry.connect("key-press-event", self.on_entry_key_press)
         self.entry_scroll.add(self.entry)
+
+        self.draft_view = Gtk.TextView.new_with_buffer(self.entry_buf)
+        self.draft_view.set_wrap_mode(Gtk.WrapMode.WORD_CHAR)
+        self.draft_view.set_accepts_tab(False)
+        self.draft_view.set_pixels_above_lines(2)
+        self.draft_view.set_pixels_below_lines(2)
+        self.draft_view.get_style_context().add_class("draft-letter")
+        self.draft_view.connect("key-press-event", self.on_entry_key_press)
+        self.draft_box.add(self.draft_view)
 
         overlay = Gtk.Overlay()
         overlay.add(self.entry_scroll)
@@ -1551,8 +1554,7 @@ class SpotlightWindow(Gtk.Window):
             self._last_match_keys = None
             self.list_scroll.hide()
             if "\n" in raw or len(raw) > 54:
-                self.draft_lbl.set_text(raw)
-                self.draft_lbl.show()
+                self.draft_view.show()
                 self.draft_box.show()
                 self.divider.show()
                 adj = self.draft_box.get_vadjustment()
@@ -1956,6 +1958,9 @@ class SpotlightWindow(Gtk.Window):
         self.stop_btn.set_visible(busy)
         self.entry.set_editable(not busy)
         self.entry.set_sensitive(not busy)
+        if self.draft_view:
+            self.draft_view.set_editable(not busy)
+            self.draft_view.set_sensitive(not busy)
         self.placeholder_lbl.set_text(t("processing") if busy else t("placeholder"))
         if not busy:
             self.entry.grab_focus()
