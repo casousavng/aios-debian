@@ -1730,6 +1730,13 @@ class SpotlightWindow(Gtk.Window):
             self.show_reply(self.last_reply_md or "")
         self._sync_chat_btn()
 
+    def _show_list_scroll(self):
+        self.list_scroll.show_all()
+        first = self.listbox.get_row_at_index(0)
+        if first:
+            self.listbox.select_row(first)
+        self.resize(720, 1)
+
     def hide_results(self):
         was_open = (
             self.divider.is_visible()
@@ -2015,7 +2022,8 @@ class SpotlightWindow(Gtk.Window):
             self.hide_results()
             return
 
-        if self.reply_box.is_visible():
+        was_reply = self.reply_box.is_visible()
+        if was_reply:
             self.reply_box.hide()
             self._sync_chat_btn()
         query_for_match = raw.lstrip() if raw.lstrip().startswith(("/", "#")) else text
@@ -2023,7 +2031,7 @@ class SpotlightWindow(Gtk.Window):
         if not matches:
             self.results = []
             self._last_match_keys = None
-            was_open = self.list_scroll.is_visible() or self.draft_box.is_visible() or self.divider.is_visible()
+            was_open = was_reply or self.list_scroll.is_visible() or self.draft_box.is_visible() or self.divider.is_visible()
             self.list_scroll.hide()
             if "\n" in raw or len(raw) > 54:
                 self.draft_view.show()
@@ -2073,10 +2081,7 @@ class SpotlightWindow(Gtk.Window):
             self.listbox.add(row)
 
         self.divider.show()
-        self.list_scroll.show_all()
-        first = self.listbox.get_row_at_index(0)
-        if first:
-            self.listbox.select_row(first)
+        self._show_list_scroll()
 
     def toggle_all_apps(self, *_):
         if self.list_scroll.is_visible() and self._last_match_keys == "__all_apps__":
@@ -2108,10 +2113,7 @@ class SpotlightWindow(Gtk.Window):
             row.add(hbox)
             self.listbox.add(row)
         self.divider.show()
-        self.list_scroll.show_all()
-        first = self.listbox.get_row_at_index(0)
-        if first:
-            self.listbox.select_row(first)
+        self._show_list_scroll()
         self._sync_chat_btn()
 
     def toggle_ai_profiles(self, *_):
@@ -2149,10 +2151,7 @@ class SpotlightWindow(Gtk.Window):
             row.add(hbox)
             self.listbox.add(row)
         self.divider.show()
-        self.list_scroll.show_all()
-        first = self.listbox.get_row_at_index(0)
-        if first:
-            self.listbox.select_row(first)
+        self._show_list_scroll()
         self._sync_chat_btn()
 
     def show_chats_history(self):
@@ -2195,10 +2194,7 @@ class SpotlightWindow(Gtk.Window):
             row.add(hbox)
             self.listbox.add(row)
         self.divider.show()
-        self.list_scroll.show_all()
-        first = self.listbox.get_row_at_index(0)
-        if first:
-            self.listbox.select_row(first)
+        self._show_list_scroll()
 
     def on_entry_key_press(self, _, event):
         if (event.state & Gdk.ModifierType.CONTROL_MASK) and event.keyval in (Gdk.KEY_h, Gdk.KEY_H):
@@ -2262,10 +2258,7 @@ class SpotlightWindow(Gtk.Window):
             row.add(hbox)
             self.listbox.add(row)
         self.divider.show()
-        self.list_scroll.show_all()
-        first = self.listbox.get_row_at_index(0)
-        if first:
-            self.listbox.select_row(first)
+        self._show_list_scroll()
 
     def toggle_all_apps(self, *_):
         if self.list_scroll.is_visible() and self._last_match_keys == "__all_apps__":
@@ -2297,10 +2290,7 @@ class SpotlightWindow(Gtk.Window):
             row.add(hbox)
             self.listbox.add(row)
         self.divider.show()
-        self.list_scroll.show_all()
-        first = self.listbox.get_row_at_index(0)
-        if first:
-            self.listbox.select_row(first)
+        self._show_list_scroll()
         self._sync_chat_btn()
 
     def toggle_ai_profiles(self, *_):
@@ -2338,10 +2328,7 @@ class SpotlightWindow(Gtk.Window):
             row.add(hbox)
             self.listbox.add(row)
         self.divider.show()
-        self.list_scroll.show_all()
-        first = self.listbox.get_row_at_index(0)
-        if first:
-            self.listbox.select_row(first)
+        self._show_list_scroll()
         self._sync_chat_btn()
 
     def show_chats_history(self):
@@ -2384,10 +2371,7 @@ class SpotlightWindow(Gtk.Window):
             row.add(hbox)
             self.listbox.add(row)
         self.divider.show()
-        self.list_scroll.show_all()
-        first = self.listbox.get_row_at_index(0)
-        if first:
-            self.listbox.select_row(first)
+        self._show_list_scroll()
 
     def on_entry_key_press(self, _, event):
         if (event.state & Gdk.ModifierType.CONTROL_MASK) and event.keyval in (Gdk.KEY_h, Gdk.KEY_H):
