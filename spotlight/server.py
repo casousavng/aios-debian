@@ -716,6 +716,23 @@ def delete_reminder(rid: str):
     return {"ok": True}
 
 
+@app.get("/api/notifications")
+def list_notifications():
+    if not NOTIF_LOG.exists():
+        return []
+    return NOTIF_LOG.read_text(encoding="utf-8", errors="ignore").splitlines()[-30:]
+
+
+@app.delete("/api/notifications")
+def clear_notifications():
+    try:
+        if NOTIF_LOG.exists():
+            NOTIF_LOG.unlink()
+    except OSError:
+        pass
+    return {"ok": True}
+
+
 if __name__ == "__main__":
     threading.Thread(target=_reminder_loop, daemon=True).start()
     uvicorn.run(app, host="127.0.0.1", port=8765, log_level="warning")

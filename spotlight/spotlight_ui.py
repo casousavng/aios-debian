@@ -386,6 +386,7 @@ def get_system_commands():
         ("#chats", t("slash_chats"), "local:chats"),
         ("#apps", t("slash_apps"), "local:apps"),
         ("#audit", t("slash_audit"), "local:audit"),
+        ("#notif", t("slash_notif"), "local:notif"),
         ("#clip", t("slash_clip"), "local:clip"),
         ("#screenshot", t("slash_screenshot"), "local:screenshot"),
         ("#displays", t("slash_displays"), "local:displays"),
@@ -2402,6 +2403,15 @@ class SpotlightWindow(Gtk.Window):
                 else:
                     lines = af.read_text(encoding="utf-8", errors="ignore").splitlines()[-15:]
                     self.show_reply("```text\n" + "\n".join(reversed(lines)) + "\n```")
+            elif payload == "local:notif":
+                self.clear_query()
+                self.hide_results()
+                nf = HOME / ".ai-os" / "notifications.log"
+                if not nf.exists():
+                    self.show_reply(t("notif_empty"))
+                else:
+                    lines = nf.read_text(encoding="utf-8", errors="ignore").splitlines()[-20:]
+                    self.show_reply("```text\n" + "\n".join(reversed(lines)) + "\n```" if lines else t("notif_empty"))
             elif payload == "local:clip":
                 self.clear_query()
                 self.show_clip_history()
@@ -2737,6 +2747,15 @@ class SpotlightWindow(Gtk.Window):
                 self.show_reply(reply)
                 self._set_busy(False)
                 if not self.has_toplevel_focus():
+                    try:
+                        nf = HOME / ".ai-os" / "notifications.log"
+                        nf.parent.mkdir(parents=True, exist_ok=True)
+                        import datetime
+                        ts = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                        with nf.open("a", encoding="utf-8") as f:
+                            f.write(f"{ts} | AI-OS Spotlight | {t('done_notify')}\n")
+                    except Exception:
+                        pass
                     subprocess.Popen(["notify-send", "AI-OS Spotlight", t("done_notify")])
                 return False
 
