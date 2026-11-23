@@ -1,7 +1,12 @@
-# Compositor leve (cantos arredondados/transparência Spotlight) + agente SPICE + notificações
+# Compositor leve (cantos arredondados/transparência Spotlight) + agente SPICE + notificações + Polkit
 picom --config "$HOME/.config/picom.conf" -b &
 spice-vdagent &
 dunst &
+/usr/bin/lxpolkit &
+
+# Bloqueio automático após 10 min de inatividade e ao suspender
+xset s 600 600 &
+xss-lock -- i3lock -c 0f1117 &
 
 # Ícones/pastas reais no ambiente de trabalho (sem painéis nem barras)
 pcmanfm --desktop &

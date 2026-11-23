@@ -313,6 +313,8 @@ def get_slash_commands():
         ("/login", t("slash_login"), "local:login"),
         ("/logout", t("slash_logout"), "local:logout"),
         ("/update", t("slash_update"), "ask_now:/update"),
+        ("/screenshot", t("slash_screenshot"), "local:screenshot"),
+        ("/displays", t("slash_displays"), "local:displays"),
         ("/lock", t("slash_lock"), "local:lock"),
         ("/models", t("slash_models"), "ask_now:/models"),
         ("/agents", t("slash_agents"), "ask_now:/agents"),
@@ -509,6 +511,11 @@ class ControlPopover(Gtk.Window):
         self.bt_btn.connect("clicked", self._on_bt_toggle)
         card.pack_start(self.bt_btn, False, False, 0)
 
+        self.displays_btn = Gtk.Button(label=t("displays_btn"))
+        self.displays_btn.get_style_context().add_class("reply-btn")
+        self.displays_btn.connect("clicked", lambda *_: (self.hide(), subprocess.Popen(["xrandr", "--auto"])))
+        card.pack_start(self.displays_btn, False, False, 0)
+
         self.lock_btn = Gtk.Button(label=t("lock_btn"))
         self.lock_btn.get_style_context().add_class("reply-btn")
         self.lock_btn.connect("clicked", lambda *_: (self.hide(), subprocess.Popen(["i3lock", "-c", "0f1117"])))
@@ -538,6 +545,7 @@ class ControlPopover(Gtk.Window):
         self.vol_lbl.set_text(t("volume"))
         self.bri_lbl.set_text(t("brightness"))
         self.bt_btn.set_label(f"{t('bt_label')}: Toggle")
+        self.displays_btn.set_label(t("displays_btn"))
         self.lock_btn.set_label(t("lock_btn"))
 
     def _on_bt_toggle(self, *_):
@@ -1067,6 +1075,16 @@ class SpotlightWindow(Gtk.Window):
         return False
 
     def focus_spotlight(self):
+        attach = Path("/tmp/aios_attach.txt")
+        if attach.exists():
+            try:
+                txt = attach.read_text(encoding="utf-8")
+                attach.unlink()
+                if txt:
+                    self.entry_buf.set_text(txt)
+                    self.entry_buf.place_cursor(self.entry_buf.get_end_iter())
+            except OSError:
+                pass
         self.show()
         self.present_with_time(Gdk.CURRENT_TIME)
         self.set_opacity(1.0)
@@ -1475,6 +1493,16 @@ class SpotlightWindow(Gtk.Window):
                 self.clear_query()
                 self.hide_results()
                 subprocess.Popen(["i3lock", "-c", "0f1117"])
+            elif payload == "local:screenshot":
+                self.clear_query()
+                self.hide_results()
+                self.hide()
+                subprocess.Popen(["/opt/ai-os/spotlight/screenshot.sh", "--delay"])
+            elif payload == "local:displays":
+                self.clear_query()
+                self.hide_results()
+                subprocess.Popen(["xrandr", "--auto"])
+                self.show_reply(t("displays_ok"))
             elif payload == "local:login":
                 self.clear_query()
                 self.hide_results()

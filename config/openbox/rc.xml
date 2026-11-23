@@ -59,6 +59,17 @@
         <command>i3lock -c 0f1117</command>
       </action>
     </keybind>
+    <!-- Print / Super + Shift + S: Captura rápida para Spotlight -->
+    <keybind key="Print">
+      <action name="Execute">
+        <command>/opt/ai-os/spotlight/screenshot.sh</command>
+      </action>
+    </keybind>
+    <keybind key="W-S-s">
+      <action name="Execute">
+        <command>/opt/ai-os/spotlight/screenshot.sh</command>
+      </action>
+    </keybind>
   </keyboard>
   <applications>
     <application class="AISpotlight">

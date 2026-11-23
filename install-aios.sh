@@ -12,6 +12,7 @@ sudo DEBIAN_FRONTEND=noninteractive apt-get install -y \
   xorg xinit openbox pcmanfm picom wmctrl x11-xserver-utils papirus-icon-theme librsvg2-common \
   python3-gi python3-gi-cairo python3-cairo gir1.2-gtk-3.0 gir1.2-webkit2-4.1 python3-markdown spice-vdagent \
   network-manager cups brightnessctl pipewire wireplumber dunst libnotify-bin podman ufw i3lock \
+  gvfs gvfs-backends udisks2 scrot lxpolkit xss-lock \
   python3 python3-fastapi python3-uvicorn python3-psutil \
   curl git libglib2.0-bin xterm zram-tools
 
@@ -40,13 +41,22 @@ gtk-application-prefer-dark-theme=1
 EOF
 echo 'gtk-icon-theme-name="Papirus-Dark"' > "$HOME/.gtkrc-2.0"
 
+sudo mkdir -p /etc/systemd/logind.conf.d
+cat << 'EOF' | sudo tee /etc/systemd/logind.conf.d/99-aios.conf >/dev/null
+[Login]
+HandleLidSwitch=suspend
+HandleLidSwitchExternalPower=suspend
+HandlePowerKey=poweroff
+IdleAction=ignore
+EOF
+
 echo "=== [4/6] Instalar aplicação Spotlight e Antigravity CLI (agy) ==="
 if ! command -v agy >/dev/null 2>&1 && [ ! -x "$HOME/.local/bin/agy" ]; then
   curl -fsSL https://antigravity.google/cli/install.sh | bash || true
 fi
 sudo mkdir -p /opt/ai-os/spotlight
-sudo cp spotlight/server.py spotlight/index.html spotlight/spotlight_ui.py spotlight/wallpaper.py spotlight/litemd.py spotlight/i18n.py /opt/ai-os/spotlight/
-sudo chmod +x /opt/ai-os/spotlight/spotlight_ui.py /opt/ai-os/spotlight/wallpaper.py /opt/ai-os/spotlight/litemd.py
+sudo cp spotlight/server.py spotlight/index.html spotlight/spotlight_ui.py spotlight/wallpaper.py spotlight/litemd.py spotlight/i18n.py spotlight/screenshot.sh /opt/ai-os/spotlight/
+sudo chmod +x /opt/ai-os/spotlight/spotlight_ui.py /opt/ai-os/spotlight/wallpaper.py /opt/ai-os/spotlight/litemd.py /opt/ai-os/spotlight/screenshot.sh
 sudo ln -sf /opt/ai-os/spotlight/litemd.py /usr/local/bin/litemd
 sudo tee /usr/share/applications/litemd.desktop >/dev/null << 'EOF'
 [Desktop Entry]
