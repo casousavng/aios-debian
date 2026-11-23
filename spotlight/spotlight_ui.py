@@ -438,36 +438,43 @@ class WindowsPopover(Gtk.Window):
             empty.get_style_context().add_class("pop-sub")
             self.card.pack_start(empty, False, False, 2)
         else:
-            for wid, app_name, title, is_active in wins:
-                low = app_name.lower()
-                if "chromium" in low:
-                    icon_name = "web-browser"
-                elif "pcmanfm" in low:
-                    icon_name = "system-file-manager"
-                elif "xterm" in low:
-                    icon_name = "utilities-terminal"
-                elif "litemd" in low:
-                    icon_name = "text-x-generic"
-                else:
-                    icon_name = "application-x-executable"
+            by_ws = {}
+            for wid, ws_idx, app_name, title, is_active in wins:
+                by_ws.setdefault(ws_idx, []).append((wid, app_name, title, is_active))
+            for ws_idx in sorted(by_ws):
+                ws_lbl = Gtk.Label(label=f"Workspace {ws_idx + 1}" if ws_idx >= 0 else "All", xalign=0)
+                ws_lbl.get_style_context().add_class("pop-sub")
+                self.card.pack_start(ws_lbl, False, False, 2)
+                for wid, app_name, title, is_active in by_ws[ws_idx]:
+                    low = app_name.lower()
+                    if "chromium" in low:
+                        icon_name = "web-browser"
+                    elif "pcmanfm" in low:
+                        icon_name = "system-file-manager"
+                    elif "xterm" in low:
+                        icon_name = "utilities-terminal"
+                    elif "litemd" in low:
+                        icon_name = "text-x-generic"
+                    else:
+                        icon_name = "application-x-executable"
 
-                btn = Gtk.Button()
-                btn.get_style_context().add_class("reply-btn")
-                box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
-                ico = Gtk.Image.new_from_icon_name(icon_name, Gtk.IconSize.MENU)
-                ico.set_pixel_size(16)
-                lbl = Gtk.Label(label=title, xalign=0)
-                lbl.set_ellipsize(Pango.EllipsizeMode.END)
-                lbl.set_max_width_chars(30)
-                box.pack_start(ico, False, False, 0)
-                box.pack_start(lbl, True, True, 0)
-                if is_active:
-                    dot = Gtk.Label(label="●")
-                    dot.get_style_context().add_class("topbar-logo")
-                    box.pack_end(dot, False, False, 0)
-                btn.add(box)
-                btn.connect("clicked", lambda _, w=wid: (self.hide(), subprocess.Popen(["wmctrl", "-i", "-a", w])))
-                self.card.pack_start(btn, False, False, 0)
+                    btn = Gtk.Button()
+                    btn.get_style_context().add_class("reply-btn")
+                    box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+                    ico = Gtk.Image.new_from_icon_name(icon_name, Gtk.IconSize.MENU)
+                    ico.set_pixel_size(16)
+                    lbl = Gtk.Label(label=title, xalign=0)
+                    lbl.set_ellipsize(Pango.EllipsizeMode.END)
+                    lbl.set_max_width_chars(30)
+                    box.pack_start(ico, False, False, 0)
+                    box.pack_start(lbl, True, True, 0)
+                    if is_active:
+                        dot = Gtk.Label(label="●")
+                        dot.get_style_context().add_class("topbar-logo")
+                        box.pack_end(dot, False, False, 0)
+                    btn.add(box)
+                    btn.connect("clicked", lambda _, w=wid: (self.hide(), subprocess.Popen(["wmctrl", "-i", "-a", w])))
+                    self.card.pack_start(btn, False, False, 0)
 
         self.move(geom.x + 10, geom.y + 34)
         self.show_all()
@@ -809,22 +816,14 @@ class TopBarWindow(Gtk.Window):
         GLib.timeout_add_seconds(1, self.refresh_windows)
 
     def refresh_windows(self):
+        cur_ws = 0
         try:
             ws_out = subprocess.check_output(["wmctrl", "-d"], text=True, stderr=subprocess.DEVNULL)
-            cur_ws = 0
             for line in ws_out.splitlines():
                 parts = line.split()
                 if len(parts) >= 2 and parts[1] == "*":
                     cur_ws = int(parts[0])
                     break
-            if cur_ws != self._last_ws:
-                self._last_ws = cur_ws
-                for idx, wb in enumerate(self.ws_btns):
-                    ctx = wb.get_style_context()
-                    if idx == cur_ws:
-                        ctx.add_class("win-dot-active")
-                    else:
-                        ctx.remove_class("win-dot-active")
         except Exception:
             pass
 
@@ -842,26 +841,46 @@ class TopBarWindow(Gtk.Window):
             return True
 
         wins = []
+        occupied_ws = set()
         for line in out.splitlines():
             parts = line.split(None, 4)
             if len(parts) < 5:
                 continue
-            wid, _, wm_class, _, title = parts
+            wid, ws_str, wm_class, _, title = parts
             if "AITopBar" in wm_class or "AISpotlight" in wm_class:
                 continue
             if wm_class == "pcmanfm.Pcmanfm" and title == "pcmanfm":
                 continue
+            try:
+                ws_idx = int(ws_str)
+            except ValueError:
+                ws_idx = 0
+            if ws_idx >= 0:
+                occupied_ws.add(ws_idx)
             is_active = int(wid, 16) == active_int
             app_name = wm_class.split(".")[-1] if "." in wm_class else wm_class
-            wins.append((wid, app_name, title, is_active))
+            wins.append((wid, ws_idx, app_name, title, is_active))
 
-        if wins == self._last_windows:
+        for idx, wb in enumerate(self.ws_btns):
+            lbl = f"{idx + 1}•" if idx in occupied_ws else str(idx + 1)
+            if wb.get_label() != lbl:
+                wb.set_label(lbl)
+            ctx = wb.get_style_context()
+            if idx == cur_ws:
+                ctx.add_class("win-dot-active")
+            else:
+                ctx.remove_class("win-dot-active")
+
+        if (wins, cur_ws) == (self._last_windows, self._last_ws):
             return True
         self._last_windows = wins
+        self._last_ws = cur_ws
 
         for child in self.dots_box.get_children():
             self.dots_box.remove(child)
-        for wid, app_name, title, is_active in wins:
+        for wid, ws_idx, app_name, title, is_active in wins:
+            if ws_idx not in (cur_ws, -1):
+                continue
             low = app_name.lower()
             if "chromium" in low:
                 icon_name, label_txt = "web-browser", "Browser"
