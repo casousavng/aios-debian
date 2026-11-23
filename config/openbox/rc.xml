@@ -10,6 +10,12 @@
   </focus>
   <desktops>
     <number>4</number>
+    <names>
+      <name>Desktop 1</name>
+      <name>Desktop 2</name>
+      <name>Desktop 3</name>
+      <name>Desktop 4</name>
+    </names>
   </desktops>
   <theme>
     <name>AI-OS-Glass</name>

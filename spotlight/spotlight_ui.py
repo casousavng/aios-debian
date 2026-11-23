@@ -442,7 +442,7 @@ class WindowsPopover(Gtk.Window):
             for wid, ws_idx, app_name, title, is_active in wins:
                 by_ws.setdefault(ws_idx, []).append((wid, app_name, title, is_active))
             for ws_idx in sorted(by_ws):
-                ws_lbl = Gtk.Label(label=f"Workspace {ws_idx + 1}" if ws_idx >= 0 else "All", xalign=0)
+                ws_lbl = Gtk.Label(label=f"Desktop {ws_idx + 1}" if ws_idx >= 0 else "All", xalign=0)
                 ws_lbl.get_style_context().add_class("pop-sub")
                 self.card.pack_start(ws_lbl, False, False, 2)
                 for wid, app_name, title, is_active in by_ws[ws_idx]:
