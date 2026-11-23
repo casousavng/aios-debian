@@ -2,6 +2,8 @@
 
 > **Um sistema operativo desktop AI-first construído de raiz sobre Debian 13 (Trixie) Netinst** — concebido para eliminar ruído visual, menus redundantes e sobrecarga de recursos, colocando um **Spotlight nativo** e um **agente autónomo abstraído** no centro de toda a operação diária.
 
+**Propósito do Projeto:** Explorar o conceito de sistema operativo com IA embutida que as grandes tecnológicas começaram a construir, mas com uma abordagem acessível — tirando partido de uma **subscrição mensal de baixo custo** para dar a **máquinas com poucos recursos** todo um ecossistema conectado (ficheiros locais, browser real, automações `cron`, containers e controlo de hardware).
+
 [![Debian 13 Trixie](https://img.shields.io/badge/Debian-13%20Trixie-A81D33?logo=debian&logoColor=white)](https://www.debian.org/)
 [![Openbox](https://img.shields.io/badge/WM-Openbox-2A2E37)](http://openbox.org/)
 [![GTK3 + WebKit2](https://img.shields.io/badge/UI-GTK3%20%2B%20WebKit2-4A86CF)](https://gtk.org/)
@@ -18,7 +20,7 @@
 
 ### 1. Filosofia & Decisões de Arquitetura (O Quê e Porquê)
 
-Cada componente deste sistema foi escolhido para maximizar **agilidade, previsibilidade e baixo consumo** (~380–400 MB RAM em idle):
+Cada componente deste sistema foi escolhido para maximizar **agilidade, previsibilidade e baixo consumo** (~439 MB RAM em idle):
 
 | Camada | Escolha | Porquê esta decisão |
 |---|---|---|
@@ -172,9 +174,11 @@ python3 -m unittest discover -s tests -v
 
 ## 🇬🇧 English Version
 
+**Project Purpose:** Explore the AI-embedded operating system paradigm pioneered by tech giants, but built for accessibility — leveraging an **affordable monthly AI subscription** to give **low-resource machines** a complete, connected ecosystem (local files, real browser automation, `cron` schedules, containers, and hardware controls).
+
 ### 1. Philosophy & Architecture Decisions (What & Why)
 
-Every component is chosen to maximize **responsiveness, predictability, and low resource usage** (~380–400 MB RAM at idle):
+Every component is chosen to maximize **responsiveness, predictability, and low resource usage** (~439 MB RAM at idle):
 
 | Layer | Choice | Why this decision |
 |---|---|---|
