@@ -1109,23 +1109,6 @@ class SpotlightWindow(Gtk.Window):
         self.list_scroll.add(self.listbox)
         self.card.pack_start(self.list_scroll, False, False, 0)
 
-        # Draft "letter" preview (grows upwards out of the Spotlight bar on long prompts)
-        self.draft_box = Gtk.ScrolledWindow()
-        self.draft_box.set_shadow_type(Gtk.ShadowType.NONE)
-        self.draft_box.get_style_context().add_class("clean-scroll")
-        self.draft_box.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
-        self.draft_box.set_max_content_height(180)
-        self.draft_box.set_propagate_natural_height(True)
-        self.draft_box.set_no_show_all(True)
-        self.draft_lbl = Gtk.Label(xalign=0)
-        self.draft_lbl.set_line_wrap(True)
-        self.draft_lbl.set_line_wrap_mode(Pango.WrapMode.WORD_CHAR)
-        self.draft_lbl.set_max_width_chars(76)
-        self.draft_lbl.set_selectable(True)
-        self.draft_lbl.get_style_context().add_class("draft-letter")
-        self.draft_box.add(self.draft_lbl)
-        self.card.pack_start(self.draft_box, False, False, 0)
-
         self.divider = Gtk.Box()
         self.divider.get_style_context().add_class("divider")
         self.card.pack_start(self.divider, False, False, 0)
@@ -1143,13 +1126,12 @@ class SpotlightWindow(Gtk.Window):
         self.entry_scroll = Gtk.ScrolledWindow()
         self.entry_scroll.set_shadow_type(Gtk.ShadowType.NONE)
         self.entry_scroll.get_style_context().add_class("clean-scroll")
-        self.entry_scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.EXTERNAL)
-        self.entry_scroll.set_min_content_height(22)
-        self.entry_scroll.set_max_content_height(24)
-        self.entry_scroll.set_size_request(-1, 24)
+        self.entry_scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        self.entry_scroll.set_min_content_height(24)
+        self.entry_scroll.set_max_content_height(150)
         self.entry_scroll.set_vexpand(False)
-        self.entry_scroll.set_propagate_natural_height(False)
-        self.entry_scroll.set_valign(Gtk.Align.CENTER)
+        self.entry_scroll.set_propagate_natural_height(True)
+        self.entry_scroll.set_valign(Gtk.Align.END)
 
         self.entry = Gtk.TextView()
         self.entry.set_wrap_mode(Gtk.WrapMode.WORD_CHAR)
@@ -1175,7 +1157,7 @@ class SpotlightWindow(Gtk.Window):
             self.topbar.on_lang_changed = self.apply_lang
 
         v_wrap = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
-        v_wrap.pack_start(overlay, True, False, 0)
+        v_wrap.pack_start(overlay, True, True, 0)
         top_row.pack_start(v_wrap, True, True, 0)
 
         vadj = self.entry_scroll.get_vadjustment()
@@ -1327,7 +1309,6 @@ class SpotlightWindow(Gtk.Window):
     def hide_results(self):
         self.divider.hide()
         self.list_scroll.hide()
-        self.draft_box.hide()
         self.reply_box.hide()
         self.resize(720, 1)
 
@@ -1547,22 +1528,12 @@ class SpotlightWindow(Gtk.Window):
         matches = self.build_matches(query_for_match)
         if not matches:
             self.results = []
-            self._last_match_keys = None
-            self.list_scroll.hide()
-            if "\n" in raw or len(raw) > 56:
-                self.draft_lbl.set_text(raw)
-                self.draft_lbl.show()
-                self.draft_box.show()
-                self.divider.show()
-                adj = self.draft_box.get_vadjustment()
-                GLib.idle_add(lambda: (adj.set_value(adj.get_upper()), False)[1])
-            else:
-                self.draft_box.hide()
+            if self._last_match_keys:
+                self._last_match_keys = None
                 self.divider.hide()
-                self.resize(720, 1)
+                self.list_scroll.hide()
+            self.resize(720, 1)
             return
-
-        self.draft_box.hide()
 
         keys = [(k, t) for k, t, _, _, _ in matches]
         if keys == self._last_match_keys and self.list_scroll.is_visible():
