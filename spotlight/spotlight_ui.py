@@ -296,7 +296,7 @@ def get_system_actions():
     return [
         (*t("act_terminal"), "utilities-terminal", lambda: subprocess.Popen(["xterm"])),
         (*t("act_files"), "system-file-manager", lambda: subprocess.Popen(["pcmanfm", str(HOME)])),
-        (*t("act_browser"), "web-browser", lambda: subprocess.Popen(["chromium"])),
+        (*t("act_browser"), "web-browser", lambda: subprocess.Popen(["chromium", "--remote-debugging-port=9222", "--remote-debugging-address=127.0.0.1"])),
         (*t("act_sysinfo"), "utilities-system-monitor", f"ask:{t('act_sysinfo_prompt')}"),
         (*t("act_lock"), "system-lock-screen", lambda: subprocess.Popen(["/opt/ai-os/spotlight/lock.sh"])),
         (*t("act_reboot"), "system-reboot", lambda: subprocess.Popen(["sudo", "reboot"])),

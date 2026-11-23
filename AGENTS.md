@@ -37,3 +37,11 @@ Quando ligado à VM de desenvolvimento Debian (`aios-dev`), o agente deve:
 1. Verificar a arquitetura (`uname -m`) e confirmar que `/etc/apt/apt.conf.d/99norecommends` está ativo.
 2. Copiar os ficheiros deste repositório (`install-aios.sh`, `config/`, `spotlight/`, `AGENTS.md`) para a VM e executar `bash install-aios.sh`.
 3. Validar que o serviço `aios-spotlight.service` (systemd user) está ativo e que o Openbox arranca limpo no `tty1`.
+
+## 6. Browser Agent Web (`aios-web` via Chromium CDP)
+Quando o utilizador pedir para abrir um site, ler conteúdo web, preencher formulários ou clicar em botões no navegador, **executa obrigatoriamente passo a passo via `aios-web`** (não digas que não tens acesso ao browser):
+1. `aios-web open "<URL>"` — Abre o Chromium (com CDP `127.0.0.1:9222` no `DISPLAY=:0`) e navega para o URL.
+2. `aios-web dom` — Lê o título, texto visível e a lista de elementos interativos com seletores `[data-aios-id="N"]`.
+3. `aios-web fill '<selector>' '<valor>'` — Preenche campos `<input>`, `<textarea>`, `<select>` ou checkboxes (`true`/`false`).
+4. `aios-web click '<selector>'` — Clica em botões ou links.
+5. `aios-web dom` — Volta a ler o DOM após cliques/submissões para confirmar o resultado real antes de responder ao utilizador.
