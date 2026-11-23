@@ -2272,6 +2272,18 @@ class SpotlightWindow(Gtk.Window):
         self._show_list_scroll()
 
     def on_entry_key_press(self, _, event):
+        if (event.state & Gdk.ModifierType.CONTROL_MASK) and event.keyval in (Gdk.KEY_v, Gdk.KEY_V):
+            cb = Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD)
+            if not cb.wait_is_text_available() and cb.wait_is_image_available():
+                pb = cb.wait_for_image()
+                if pb:
+                    import time
+                    tmp_dir = HOME / ".ai-os" / "tmp"
+                    tmp_dir.mkdir(parents=True, exist_ok=True)
+                    img_path = tmp_dir / f"clip_{int(time.time())}.png"
+                    pb.savev(str(img_path), "png", [], [])
+                    self.entry_buf.insert_at_cursor(f"@{img_path} ")
+                    return True
         if (event.state & Gdk.ModifierType.CONTROL_MASK) and event.keyval in (Gdk.KEY_h, Gdk.KEY_H):
             self.show_chats_history()
             return True
