@@ -380,6 +380,26 @@ class WindowsPopover(Gtk.Window):
         self.card.get_style_context().add_class("popover-card")
         self.card.set_size_request(260, -1)
         self.add(self.card)
+        self._hovering = False
+        self.add_events(Gdk.EventMask.ENTER_NOTIFY_MASK | Gdk.EventMask.LEAVE_NOTIFY_MASK)
+        self.connect("enter-notify-event", self._on_enter)
+        self.connect("leave-notify-event", self._on_leave)
+
+    def _on_enter(self, *_):
+        self._hovering = True
+        return False
+
+    def _on_leave(self, _, event):
+        if event.detail == Gdk.NotifyType.INFERIOR:
+            return False
+        self._hovering = False
+        GLib.timeout_add(220, self._maybe_hide)
+        return False
+
+    def _maybe_hide(self):
+        if not self._hovering and not getattr(self, "_trigger_hovering", False):
+            self.hide()
+        return False
 
     def show_at(self, geom, wins):
         if not self.is_visible():
@@ -479,6 +499,26 @@ class ControlPopover(Gtk.Window):
         self.lock_btn.get_style_context().add_class("reply-btn")
         self.lock_btn.connect("clicked", lambda *_: (self.hide(), subprocess.Popen(["i3lock", "-c", "0f1117"])))
         card.pack_start(self.lock_btn, False, False, 0)
+        self._hovering = False
+        self.add_events(Gdk.EventMask.ENTER_NOTIFY_MASK | Gdk.EventMask.LEAVE_NOTIFY_MASK)
+        self.connect("enter-notify-event", self._on_enter)
+        self.connect("leave-notify-event", self._on_leave)
+
+    def _on_enter(self, *_):
+        self._hovering = True
+        return False
+
+    def _on_leave(self, _, event):
+        if event.detail == Gdk.NotifyType.INFERIOR:
+            return False
+        self._hovering = False
+        GLib.timeout_add(300, self._maybe_hide)
+        return False
+
+    def _maybe_hide(self):
+        if not self._hovering:
+            self.hide()
+        return False
 
     def refresh_labels(self):
         self.vol_lbl.set_text(t("volume"))
@@ -559,8 +599,9 @@ class TopBarWindow(Gtk.Window):
         self.logo_lbl.get_style_context().add_class("topbar-logo")
         self.logo_btn.add(self.logo_lbl)
         self.logo_btn.set_tooltip_text(t("show_windows_tip"))
-        self.logo_btn.add_events(Gdk.EventMask.ENTER_NOTIFY_MASK)
-        self.logo_btn.connect("enter-notify-event", lambda *_: (self.win_popover.show_at(geom, self._last_windows or []), False)[1])
+        self.logo_btn.add_events(Gdk.EventMask.ENTER_NOTIFY_MASK | Gdk.EventMask.LEAVE_NOTIFY_MASK)
+        self.logo_btn.connect("enter-notify-event", self._on_logo_enter)
+        self.logo_btn.connect("leave-notify-event", self._on_logo_leave)
         self.logo_btn.connect("clicked", lambda *_: self.win_popover.toggle_at(geom, self._last_windows or []))
         bar.pack_start(self.logo_btn, False, False, 0)
 
@@ -679,6 +720,19 @@ class TopBarWindow(Gtk.Window):
             self.dots_box.add(btn)
         self.dots_box.show_all()
         return True
+
+    def _on_logo_enter(self, *_):
+        self.win_popover._trigger_hovering = True
+        geom = self.get_screen().get_monitor_geometry(0)
+        self.win_popover.show_at(geom, self._last_windows or [])
+        return False
+
+    def _on_logo_leave(self, _, event):
+        if event.detail == Gdk.NotifyType.INFERIOR:
+            return False
+        self.win_popover._trigger_hovering = False
+        GLib.timeout_add(220, self.win_popover._maybe_hide)
+        return False
 
     def _toggle_lang(self, *_):
         nxt = "en" if get_lang() == "pt" else "pt"
