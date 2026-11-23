@@ -764,13 +764,14 @@ def _write_crontab(lines: list[str]):
 def list_crons():
     out = []
     for line in _read_crontab():
-        m = re.match(r"^(\S+\s+\S+\s+\S+\s+\S+\s+\S+)\s+.*?#\s*aios-cron:([a-f0-9]+):(\w+):(.*)$", line.strip())
+        m = re.match(r"^(#PAUSED\s+)?(\S+\s+\S+\s+\S+\s+\S+\s+\S+)\s+.*?#\s*aios-cron:([a-f0-9]+):(\w+):(.*)$", line.strip())
         if m:
             out.append({
-                "id": m.group(2),
-                "schedule": m.group(1),
-                "kind": m.group(3),
-                "label": m.group(4).strip(),
+                "id": m.group(3),
+                "schedule": m.group(2),
+                "kind": m.group(4),
+                "label": m.group(5).strip(),
+                "paused": bool(m.group(1)),
             })
     return out
 
@@ -789,6 +790,25 @@ def create_cron(req: CronRequest):
     lines.append(entry)
     _write_crontab(lines)
     return {"ok": True, "cron": {"id": cid, "schedule": sched, "kind": kind, "label": label}}
+
+
+@app.post("/api/crons/{cid}/toggle")
+def toggle_cron(cid: str):
+    tag = f"# aios-cron:{cid}:"
+    new_lines = []
+    paused = False
+    for l in _read_crontab():
+        if tag in l:
+            s = l.lstrip()
+            if s.startswith("#PAUSED "):
+                l = s[len("#PAUSED "):]
+                paused = False
+            else:
+                l = "#PAUSED " + s
+                paused = True
+        new_lines.append(l)
+    _write_crontab(new_lines)
+    return {"ok": True, "paused": paused}
 
 
 @app.delete("/api/crons/{cid}")

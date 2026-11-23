@@ -624,6 +624,16 @@ class RemindersPopover(Gtk.Window):
             GLib.idle_add(self._load_async)
         threading.Thread(target=_w, daemon=True).start()
 
+    def _toggle_cron(self, cid):
+        def _w():
+            try:
+                req = urllib.request.Request(f"{API_BASE}/api/crons/{cid}/toggle", data=b"{}", method="POST")
+                urllib.request.urlopen(req, timeout=2).read()
+            except Exception:
+                pass
+            GLib.idle_add(self._load_async)
+        threading.Thread(target=_w, daemon=True).start()
+
     def _load_async(self):
         def _fetch():
             rems, crons, notifs = [], [], []
@@ -655,15 +665,21 @@ class RemindersPopover(Gtk.Window):
                 for it in crons[:5]:
                     row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=4)
                     when = human_cron(it.get("schedule", ""))
-                    lbl = Gtk.Label(label=f"↻ {when} · {it.get('label', '')}", xalign=0)
+                    is_paused = bool(it.get("paused"))
+                    prefix = "⏸ " if is_paused else "↻ "
+                    lbl = Gtk.Label(label=f"{prefix}{when} · {it.get('label', '')}", xalign=0)
                     lbl.set_ellipsize(Pango.EllipsizeMode.END)
-                    lbl.set_max_width_chars(38)
+                    lbl.set_max_width_chars(32)
                     lbl.get_style_context().add_class("pop-sub")
+                    pb = Gtk.Button(label="▶" if is_paused else "⏸")
+                    pb.get_style_context().add_class("reply-btn")
+                    pb.connect("clicked", lambda _, cid=it.get("id"): self._toggle_cron(cid))
                     xb = Gtk.Button(label="✕")
                     xb.get_style_context().add_class("reply-btn")
                     xb.connect("clicked", lambda _, sid=it.get("id"): self._delete_sched("cron", sid))
                     row.pack_start(lbl, True, True, 0)
                     row.pack_end(xb, False, False, 0)
+                    row.pack_end(pb, False, False, 0)
                     self.sched_box.add(row)
                 self.sched_box.show_all()
 
