@@ -97,6 +97,16 @@
       </action>
     </keybind>
   </keyboard>
+  <mouse>
+    <context name="Desktop">
+      <mousebind button="Button6" action="Click">
+        <action name="GoToDesktop"><to>left</to></action>
+      </mousebind>
+      <mousebind button="Button7" action="Click">
+        <action name="GoToDesktop"><to>right</to></action>
+      </mousebind>
+    </context>
+  </mouse>
   <applications>
     <application class="AISpotlight">
       <decor>no</decor>

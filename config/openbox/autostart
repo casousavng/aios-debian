@@ -15,7 +15,8 @@ xss-lock -- /opt/ai-os/spotlight/lock.sh &
 # Ícones/pastas reais no ambiente de trabalho (sem painéis nem barras)
 pcmanfm --desktop &
 
-# Aplica wallpaper dinâmico e arranca Spotlight fixo no fundo do ecrã
+# Aplica wallpaper dinâmico e arranca Spotlight + gestos touchpad
 sleep 1
 python3 /opt/ai-os/spotlight/wallpaper.py &
 python3 /opt/ai-os/spotlight/spotlight_ui.py &
+python3 /opt/ai-os/spotlight/gestures.py &

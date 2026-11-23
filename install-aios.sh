@@ -13,7 +13,7 @@ sudo DEBIAN_FRONTEND=noninteractive apt-get install -y \
   xorg xinit openbox pcmanfm picom wmctrl x11-xserver-utils papirus-icon-theme librsvg2-common \
   python3-gi python3-gi-cairo python3-cairo gir1.2-gtk-3.0 gir1.2-webkit2-4.1 python3-markdown spice-vdagent \
   network-manager brightnessctl pipewire wireplumber dunst libnotify-bin podman ufw i3lock \
-  gvfs udisks2 scrot lxpolkit xss-lock gpicview \
+  gvfs udisks2 scrot lxpolkit xss-lock gpicview libinput-tools \
   fonts-inter fonts-jetbrains-mono earlyoom bibata-cursor-theme \
   python3 python3-fastapi python3-uvicorn python3-psutil \
   curl git libglib2.0-bin xterm zram-tools
@@ -75,8 +75,9 @@ if ! command -v agy >/dev/null 2>&1 && [ ! -x "$HOME/.local/bin/agy" ]; then
 fi
 [ -x "$HOME/.local/bin/agy" ] && sudo ln -sf "$HOME/.local/bin/agy" /usr/local/bin/agy || true
 sudo mkdir -p /opt/ai-os/spotlight
-sudo cp spotlight/server.py spotlight/index.html spotlight/spotlight_ui.py spotlight/wallpaper.py spotlight/litemd.py spotlight/i18n.py spotlight/screenshot.sh spotlight/lock.sh spotlight/update.sh /opt/ai-os/spotlight/
-sudo chmod +x /opt/ai-os/spotlight/spotlight_ui.py /opt/ai-os/spotlight/wallpaper.py /opt/ai-os/spotlight/litemd.py /opt/ai-os/spotlight/screenshot.sh /opt/ai-os/spotlight/lock.sh /opt/ai-os/spotlight/update.sh
+sudo cp spotlight/server.py spotlight/index.html spotlight/spotlight_ui.py spotlight/wallpaper.py spotlight/litemd.py spotlight/i18n.py spotlight/screenshot.sh spotlight/lock.sh spotlight/update.sh spotlight/gestures.py /opt/ai-os/spotlight/
+sudo chmod +x /opt/ai-os/spotlight/spotlight_ui.py /opt/ai-os/spotlight/wallpaper.py /opt/ai-os/spotlight/litemd.py /opt/ai-os/spotlight/screenshot.sh /opt/ai-os/spotlight/lock.sh /opt/ai-os/spotlight/update.sh /opt/ai-os/spotlight/gestures.py
+sudo usermod -aG input "$USER" || true
 sudo ln -sf /opt/ai-os/spotlight/litemd.py /usr/local/bin/litemd
 sudo tee /usr/share/applications/litemd.desktop >/dev/null << 'EOF'
 [Desktop Entry]

@@ -811,9 +811,31 @@ class TopBarWindow(Gtk.Window):
         status_inner.pack_end(wifi_box, False, False, 0)
 
         self.move(geom.x, geom.y)
+        self.add_events(Gdk.EventMask.SCROLL_MASK | Gdk.EventMask.SMOOTH_SCROLL_MASK)
+        self.connect("scroll-event", self._on_topbar_scroll)
         self.show_all()
         self.refresh_windows()
         GLib.timeout_add_seconds(1, self.refresh_windows)
+
+    def _on_topbar_scroll(self, _, event):
+        delta = 0
+        if event.direction in (Gdk.ScrollDirection.LEFT, Gdk.ScrollDirection.UP):
+            delta = -1
+        elif event.direction in (Gdk.ScrollDirection.RIGHT, Gdk.ScrollDirection.DOWN):
+            delta = 1
+        elif event.direction == Gdk.ScrollDirection.SMOOTH:
+            ok, dx, dy = event.get_scroll_deltas()
+            if ok:
+                val = dx if abs(dx) >= abs(dy) else dy
+                if val > 0.2:
+                    delta = 1
+                elif val < -0.2:
+                    delta = -1
+        if delta != 0 and self._last_ws >= 0:
+            nxt = max(0, min(3, self._last_ws + delta))
+            if nxt != self._last_ws:
+                subprocess.Popen(["wmctrl", "-s", str(nxt)])
+        return True
 
     def refresh_windows(self):
         cur_ws = 0
