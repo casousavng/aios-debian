@@ -7,7 +7,7 @@ CONFIG_PATH = Path.home() / ".ai-os" / "config.json"
 
 STRINGS = {
     "pt": {
-        "placeholder": "Pede algo, executa uma tarefa ou abre uma app...",
+        "placeholder": "Pede algo, / para IA, # para sistema...",
         "open_windows": "Janelas Abertas",
         "no_windows": "Nenhuma janela aberta",
         "show_windows_tip": "Mostrar todas as janelas abertas",
@@ -78,7 +78,7 @@ STRINGS = {
         "litemd_empty": "# LiteMD\n\nClica em **Abrir** para escolher um ficheiro `.md`.",
     },
     "en": {
-        "placeholder": "Ask anything, run a task, or open an app...",
+        "placeholder": "Ask anything, / for AI, # for system...",
         "open_windows": "Open Windows",
         "no_windows": "No open windows",
         "show_windows_tip": "Show all open windows",

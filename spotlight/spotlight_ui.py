@@ -307,17 +307,8 @@ def get_system_actions():
 def get_slash_commands():
     return [
         ("/usage", t("slash_usage"), "ask_now:/usage"),
-        ("/chats", t("slash_chats"), "local:chats"),
-        ("/clip", t("slash_clip"), "local:clip"),
         ("/model ", t("slash_model"), "fill:/model "),
         ("/mode ", t("slash_mode"), "fill:/mode "),
-        ("/lang ", t("slash_lang"), "fill:/lang "),
-        ("/login", t("slash_login"), "local:login"),
-        ("/logout", t("slash_logout"), "local:logout"),
-        ("/update", t("slash_update"), "ask_now:/update"),
-        ("/screenshot", t("slash_screenshot"), "local:screenshot"),
-        ("/displays", t("slash_displays"), "local:displays"),
-        ("/lock", t("slash_lock"), "local:lock"),
         ("/models", t("slash_models"), "ask_now:/models"),
         ("/agents", t("slash_agents"), "ask_now:/agents"),
         ("/mcp", t("slash_mcp"), "ask_now:/mcp"),
@@ -327,6 +318,22 @@ def get_slash_commands():
         ("/plan ", t("slash_plan"), "fill:/plan "),
         ("/changelog", t("slash_changelog"), "ask_now:/changelog"),
         ("/help", t("slash_help"), "ask_now:/help"),
+    ]
+
+
+def get_system_commands():
+    return [
+        ("#chats", t("slash_chats"), "local:chats"),
+        ("#clip", t("slash_clip"), "local:clip"),
+        ("#screenshot", t("slash_screenshot"), "local:screenshot"),
+        ("#displays", t("slash_displays"), "local:displays"),
+        ("#lang ", t("slash_lang"), "fill:#lang "),
+        ("#login", t("slash_login"), "local:login"),
+        ("#logout", t("slash_logout"), "local:logout"),
+        ("#update", t("slash_update"), "ask_now:/update"),
+        ("#lock", t("slash_lock"), "local:lock"),
+        ("#reboot", t("act_reboot")[1], "local:reboot"),
+        ("#poweroff", t("act_poweroff")[1], "local:poweroff"),
     ]
 
 
@@ -1245,11 +1252,19 @@ class SpotlightWindow(Gtk.Window):
                 if not filt or filt in mode_id
             ]
 
-        if q_raw.startswith("/lang "):
+        if q_raw.startswith("#lang "):
             return [
-                ("slash", "pt", "Português (PT-PT)", "preferences-desktop-locale", "ask_now:/lang pt"),
-                ("slash", "en", "English (EN)", "preferences-desktop-locale", "ask_now:/lang en"),
+                ("slash", "pt", "Português (PT-PT)", "preferences-desktop-locale", "ask_now:#lang pt"),
+                ("slash", "en", "English (EN)", "preferences-desktop-locale", "ask_now:#lang en"),
             ]
+
+        # If prompt starts with #, autocomplete AI-OS system commands
+        if q.startswith("#") and " " not in q:
+            return [
+                ("slash", cmd, desc, "preferences-system", action)
+                for cmd, desc, action in get_system_commands()
+                if q in cmd.lower() or q.lstrip("#") in desc.lower()
+            ][:15]
 
         # If prompt starts with /, autocomplete agy slash commands
         if q.startswith("/") and " " not in q:
@@ -1259,8 +1274,8 @@ class SpotlightWindow(Gtk.Window):
                 if q in cmd.lower() or q.lstrip("/") in desc.lower()
             ][:15]
 
-        # If prompt contains @ or slash with args, pass directly to agy
-        if q.startswith("/") or "@" in q:
+        # If prompt contains @ or slash/hash with args, pass directly to agy
+        if q.startswith(("/", "#")) or "@" in q:
             return []
 
         matches = []
@@ -1303,7 +1318,7 @@ class SpotlightWindow(Gtk.Window):
             return
 
         self.reply_box.hide()
-        query_for_match = raw.lstrip() if raw.lstrip().startswith("/") else text
+        query_for_match = raw.lstrip() if raw.lstrip().startswith(("/", "#")) else text
         matches = self.build_matches(query_for_match)
         if not matches:
             self.results = []
@@ -1567,6 +1582,14 @@ class SpotlightWindow(Gtk.Window):
                 self.hide_results()
                 subprocess.Popen(["xrandr", "--auto"])
                 self.show_reply(t("displays_ok"))
+            elif payload == "local:reboot":
+                self.clear_query()
+                self.hide_results()
+                subprocess.Popen(["sudo", "reboot"])
+            elif payload == "local:poweroff":
+                self.clear_query()
+                self.hide_results()
+                subprocess.Popen(["sudo", "poweroff"])
             elif payload == "local:login":
                 self.clear_query()
                 self.hide_results()
@@ -1673,7 +1696,7 @@ class SpotlightWindow(Gtk.Window):
             self.show_reply(t("login_fail", err=e))
 
     def send_to_ai(self, prompt):
-        if prompt.strip().startswith("/lang "):
+        if prompt.strip().startswith(("#lang ", "/lang ")):
             if self.topbar and not self.topbar._confirm_lang_switch():
                 return
             lang = set_lang(prompt.split(None, 1)[1].strip())
