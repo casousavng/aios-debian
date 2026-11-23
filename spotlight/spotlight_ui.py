@@ -1336,12 +1336,12 @@ class TopBarWindow(Gtk.Window):
         bar.pack_end(status_btn, False, False, 0)
 
         self.bell_btn = Gtk.Button()
-        bell_ico = Gtk.Image.new_from_icon_name("preferences-system-notifications-symbolic", Gtk.IconSize.MENU)
+        bell_ico = Gtk.Image.new_from_icon_name("notifications-symbolic", Gtk.IconSize.MENU)
         bell_ico.set_pixel_size(14)
         self.bell_btn.add(bell_ico)
         self.bell_btn.set_can_focus(False)
         self.bell_btn.set_valign(Gtk.Align.CENTER)
-        self.bell_btn.get_style_context().add_class("win-dot")
+        self.bell_btn.get_style_context().add_class("status-trigger")
         self.bell_btn.set_tooltip_text(t("bell_tip"))
         self.on_lang_changed = None
         self.bell_btn.connect("clicked", lambda *_: (self.popover.hide(), self.rem_popover.toggle_at(geom)))
