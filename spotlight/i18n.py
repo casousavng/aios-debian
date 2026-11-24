@@ -175,6 +175,9 @@ STRINGS = {
         "artifacts_empty": "Sem artefactos temporários gerados.",
         "artifacts_clear_all": "Apagar Todos",
         "slash_artifacts": "Ver e gerir ficheiros e imagens gerados pela IA",
+        "chats_mgr_btn": "Gerir Conversas",
+        "chats_mgr_title": "Conversas Guardadas",
+        "chats_mgr_empty": "Sem conversas guardadas.",
     },
     "en": {
         "placeholder": "Ask anything, / for AI, # for system...",
@@ -344,6 +347,9 @@ STRINGS = {
         "artifacts_empty": "No temporary generated artifacts.",
         "artifacts_clear_all": "Delete All",
         "slash_artifacts": "View and manage AI generated files & images",
+        "chats_mgr_btn": "Manage Chats",
+        "chats_mgr_title": "Saved Conversations",
+        "chats_mgr_empty": "No saved conversations.",
     },
 }
 

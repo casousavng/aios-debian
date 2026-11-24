@@ -1475,6 +1475,8 @@ def open_artifacts_dialog(parent=None):
     box.set_spacing(8)
     scroll = Gtk.ScrolledWindow()
     scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+    scroll.set_min_content_height(260)
+    scroll.set_max_content_height(280)
     list_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
     scroll.add(list_box)
     box.pack_start(scroll, True, True, 0)
@@ -1530,6 +1532,87 @@ def open_artifacts_dialog(parent=None):
             urllib.request.urlopen(req, timeout=8).read()
         except Exception:
             pass
+        _reload()
+    clear_b.connect("clicked", _clear_all)
+    box.pack_start(clear_b, False, False, 0)
+    dlg.add_buttons(t("close_btn"), Gtk.ResponseType.CLOSE)
+    dlg.connect("response", lambda d, *_: d.destroy())
+    _reload()
+    dlg.show_all()
+    dlg.present()
+
+
+def open_chats_dialog(spotlight, parent=None):
+    from datetime import datetime
+    chats_dir = HOME / ".ai-os" / "chats"
+    dlg = Gtk.Dialog(title=t("chats_mgr_title"), transient_for=parent if isinstance(parent, Gtk.Window) else None, flags=0)
+    dlg.set_wmclass("AI-OS", "AI-OS")
+    dlg.set_position(Gtk.WindowPosition.CENTER_ALWAYS)
+    dlg.set_default_size(560, 380)
+    box = dlg.get_content_area()
+    box.set_border_width(12)
+    box.set_spacing(8)
+    scroll = Gtk.ScrolledWindow()
+    scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+    scroll.set_min_content_height(260)
+    scroll.set_max_content_height(280)
+    list_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+    scroll.add(list_box)
+    box.pack_start(scroll, True, True, 0)
+
+    def _reload():
+        for c in list_box.get_children():
+            list_box.remove(c)
+        files = sorted(chats_dir.glob("*.md"), key=lambda p: p.stat().st_mtime, reverse=True) if chats_dir.exists() else []
+        if not files:
+            lbl = Gtk.Label(label=t("chats_mgr_empty"))
+            lbl.get_style_context().add_class("pop-sub")
+            list_box.pack_start(lbl, False, False, 12)
+        for cf in files:
+            row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+            title = cf.stem
+            try:
+                for line in cf.read_text(encoding="utf-8", errors="ignore").splitlines():
+                    s = line.strip()
+                    if s and not s.startswith("#"):
+                        title = s[:48]
+                        break
+            except OSError:
+                pass
+            st = cf.stat()
+            ts = datetime.fromtimestamp(st.st_mtime).strftime("%d/%m %H:%M")
+            lbl = Gtk.Label(label=f"{title}  ({round(st.st_size / 1024, 1)} KB · {ts})", xalign=0)
+            lbl.set_ellipsize(Pango.EllipsizeMode.MIDDLE)
+            row.pack_start(lbl, True, True, 0)
+            open_b = Gtk.Button(label="Abrir" if get_lang() == "pt" else "Open")
+            open_b.get_style_context().add_class("reply-btn")
+            def _open(_, cid=cf.stem):
+                dlg.destroy()
+                if isinstance(parent, Gtk.Window):
+                    parent.destroy()
+                spotlight.current_chat_id = cid
+                update_config(last_chat_id=cid)
+                spotlight.show_reply("")
+            open_b.connect("clicked", _open)
+            del_b = Gtk.Button(label="✕")
+            del_b.get_style_context().add_class("reply-btn")
+            def _del(_, p=cf):
+                p.unlink(missing_ok=True)
+                if spotlight.current_chat_id == p.stem:
+                    spotlight._reset_new_chat()
+                _reload()
+            del_b.connect("clicked", _del)
+            row.pack_end(del_b, False, False, 0)
+            row.pack_end(open_b, False, False, 0)
+            list_box.pack_start(row, False, False, 0)
+        list_box.show_all()
+
+    clear_b = Gtk.Button(label=t("artifacts_clear_all"))
+    def _clear_all(_):
+        if chats_dir.exists():
+            for cf in chats_dir.glob("*.md"):
+                cf.unlink(missing_ok=True)
+        spotlight._reset_new_chat()
         _reload()
     clear_b.connect("clicked", _clear_all)
     box.pack_start(clear_b, False, False, 0)
@@ -1787,6 +1870,9 @@ def open_settings_dialog(spotlight):
         kb_btns[code] = kb_b
         kb_row.pack_start(kb_b, True, True, 0)
     tab_ui.pack_start(kb_row, False, False, 0)
+    chats_mgr_b = Gtk.Button(label=t("chats_mgr_btn"))
+    chats_mgr_b.connect("clicked", lambda *_: open_chats_dialog(spotlight, dlg))
+    tab_ui.pack_start(chats_mgr_b, False, False, 4)
     nb.append_page(tab_ui, Gtk.Label(label=t("settings_ui_tab")))
 
     # Tab 3: System (non-duplicated OS tools)
