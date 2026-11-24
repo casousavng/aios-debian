@@ -75,8 +75,8 @@ REPLY_HTML = """<!DOCTYPE html>
   .bubble p:last-child { margin-bottom: 0; }
   .file-chip { display: inline-flex; align-items: center; gap: 4px; background: rgba(15, 23, 42, 0.65); border: 1px solid rgba(103, 232, 249, 0.35);
     color: #67e8f9; border-radius: 8px; padding: 1px 7px; font-size: 11px; margin: 0 2px; vertical-align: middle; }
-  .thinking-pill { display: inline-flex; align-items: center; gap: 7px; color: #94a3b8; font-size: 12px; }
-  .live-dot { width: 7px; height: 7px; border-radius: 50%; background: #67e8f9;
+  .thinking-pill { display: inline-flex; align-items: center; gap: 6px; color: #94a3b8; font-size: 11px; opacity: 0.9; }
+  .live-dot { width: 6px; height: 6px; border-radius: 50%; background: #67e8f9;
     animation: pulseDot 1.1s ease-in-out infinite; display: inline-block; }
   @keyframes pulseDot { 0%, 100% { opacity: 0.35; transform: scale(0.85); } 50% { opacity: 1; transform: scale(1.15); } }
 </style>
@@ -3689,7 +3689,7 @@ class SpotlightWindow(Gtk.Window):
         if self.draft_view:
             self.draft_view.set_editable(not busy)
             self.draft_view.set_sensitive(not busy)
-        self.placeholder_lbl.set_text(t("placeholder"))
+        self.placeholder_lbl.set_text(t("processing") if busy else t("placeholder"))
         if not busy:
             self.entry.grab_focus()
         if self.topbar:
