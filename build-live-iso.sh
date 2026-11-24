@@ -148,6 +148,19 @@ pip3 install --break-system-packages --no-cache-dir python-pptx || true
 mkdir -p /etc/skel/Desktop /etc/skel/Documentos /etc/skel/Projetos /etc/skel/Downloads /etc/skel/Temp
 mkdir -p /etc/skel/.config/systemd/user/default.target.wants
 ln -sf ../aios-spotlight.service /etc/skel/.config/systemd/user/default.target.wants/aios-spotlight.service
+if ! id aios >/dev/null 2>&1; then
+  useradd -m -s /bin/bash -G sudo,audio,video,netdev,plugdev aios
+fi
+echo "aios:aios" | chpasswd
+echo "aios ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/aios
+chmod 0440 /etc/sudoers.d/aios
+cp -a /etc/skel/. /home/aios/
+chown -R aios:aios /home/aios
+mkdir -p /etc/systemd/system/getty@tty1.service.d
+cat << 'GETTY_ORDER' > /etc/systemd/system/getty@tty1.service.d/order.conf
+[Unit]
+After=live-config.service systemd-user-sessions.service
+GETTY_ORDER
 systemctl enable NetworkManager cron earlyoom || true
 EOF
 chmod +x config/hooks/live/010-aios-setup.chroot
