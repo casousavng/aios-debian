@@ -850,6 +850,107 @@ class KillPortRequest(BaseModel):
     container: str | None = None
 
 
+class PodmanActionRequest(BaseModel):
+    action: str
+    target: str | None = None
+
+
+@app.get("/api/podman")
+def list_podman():
+    containers, images = [], []
+    try:
+        out = subprocess.check_output(
+            ["podman", "ps", "-a", "--format", "{{.ID}}|{{.Names}}|{{.Image}}|{{.State}}|{{.Status}}|{{.Ports}}"],
+            text=True, stderr=subprocess.DEVNULL, timeout=4,
+        )
+        for line in out.splitlines():
+            parts = line.split("|", 5)
+            if len(parts) == 6:
+                containers.append({
+                    "id": parts[0], "name": parts[1], "image": parts[2],
+                    "state": parts[3], "status": parts[4], "ports": parts[5],
+                })
+    except Exception:
+        pass
+    try:
+        out = subprocess.check_output(
+            ["podman", "images", "--format", "{{.ID}}|{{.Repository}}:{{.Tag}}|{{.Size}}"],
+            text=True, stderr=subprocess.DEVNULL, timeout=4,
+        )
+        for line in out.splitlines():
+            parts = line.split("|", 2)
+            if len(parts) == 3:
+                images.append({"id": parts[0], "name": parts[1], "size": parts[2]})
+    except Exception:
+        pass
+    return {"containers": containers, "images": images}
+
+
+@app.post("/api/podman/action")
+def podman_action(req: PodmanActionRequest):
+    act = (req.action or "").strip()
+    if act == "prune":
+        subprocess.run(["podman", "system", "prune", "-af", "--volumes"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=30)
+        return {"ok": True}
+    tgt = (req.target or "").strip()
+    if not tgt or not re.match(r"^[a-zA-Z0-9_.:/@-]+$", tgt):
+        return {"ok": False, "error": "invalid target"}
+    cmd_map = {
+        "stop": ["podman", "stop", tgt],
+        "start": ["podman", "start", tgt],
+        "rm": ["podman", "rm", "-f", tgt],
+        "rmi": ["podman", "rmi", "-f", tgt],
+    }
+    cmd = cmd_map.get(act)
+    if not cmd:
+        return {"ok": False, "error": "invalid action"}
+    res = subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True, timeout=15)
+    return {"ok": res.returncode == 0, "error": res.stderr.strip() if res.returncode != 0 else ""}
+
+
+@app.post("/api/system/clean")
+def system_clean():
+    import shutil
+    st_before = os.statvfs("/")
+    free_before = st_before.f_bavail * st_before.f_frsize
+    cleaned = []
+    home = Path.home()
+    user_dirs = [
+        ("thumbnails", home / ".cache" / "thumbnails"),
+        ("trash", home / ".local" / "share" / "Trash" / "files"),
+        ("trash-info", home / ".local" / "share" / "Trash" / "info"),
+        ("chromium-cache", home / ".cache" / "chromium" / "Default" / "Cache"),
+        ("chromium-code", home / ".cache" / "chromium" / "Default" / "Code Cache"),
+    ]
+    for label, path in user_dirs:
+        if path.exists():
+            try:
+                for entry in path.iterdir():
+                    if entry.is_dir() and not entry.is_symlink():
+                        shutil.rmtree(entry, ignore_errors=True)
+                    else:
+                        entry.unlink(missing_ok=True)
+                cleaned.append(label)
+            except Exception:
+                pass
+    for label, cmd in [
+        ("apt", ["sudo", "-n", "apt-get", "clean"]),
+        ("autoremove", ["sudo", "-n", "apt-get", "autoremove", "-y"]),
+        ("journald", ["sudo", "-n", "journalctl", "--vacuum-time=3d"]),
+        ("podman-dangling", ["podman", "image", "prune", "-f"]),
+    ]:
+        try:
+            r = subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=30)
+            if r.returncode == 0:
+                cleaned.append(label)
+        except Exception:
+            pass
+    st_after = os.statvfs("/")
+    free_after = st_after.f_bavail * st_after.f_frsize
+    freed_mb = max(0.0, round((free_after - free_before) / (1024 * 1024), 1))
+    return {"ok": True, "freed_mb": freed_mb, "cleaned": cleaned}
+
+
 @app.get("/api/ports")
 def list_ports():
     ports = []

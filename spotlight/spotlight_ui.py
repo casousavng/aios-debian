@@ -513,6 +513,8 @@ def get_system_commands():
         ("#apps", t("slash_apps"), "local:apps"),
         ("#audit", t("slash_audit"), "local:audit"),
         ("#ports", t("slash_ports"), "local:ports"),
+        ("#podman", t("slash_podman"), "local:podman"),
+        ("#clean", t("slash_clean"), "local:clean"),
         ("#proj", t("slash_proj"), "local:proj"),
         ("#grep ", t("slash_grep"), "fill:#grep "),
         ("#health", t("slash_health"), "local:health"),
@@ -1595,7 +1597,32 @@ def open_settings_dialog(spotlight):
     keys_b = Gtk.Button(label="Atalhos" if pt else "Shortcuts")
     keys_b.connect("clicked", lambda *_: (dlg.destroy(), spotlight.execute_item(("slash", "#keys", "", "", "local:keys"))))
     grid.attach(keys_b, 1, 1, 1, 1)
+    podman_b = Gtk.Button(label="Podman")
+    podman_b.connect("clicked", lambda *_: (dlg.destroy(), spotlight.execute_item(("slash", "#podman", "", "", "local:podman"))))
+    grid.attach(podman_b, 0, 2, 1, 1)
+    clean_b = Gtk.Button(label=t("clean_btn"))
+    clean_lbl = Gtk.Label(label="", xalign=0)
+    clean_lbl.set_line_wrap(True)
+    clean_lbl.get_style_context().add_class("muted")
+    def _run_clean(*_):
+        clean_b.set_sensitive(False)
+        clean_lbl.set_text(t("clean_running"))
+        def _bg():
+            msg = t("clean_done", mb=0, items="-")
+            try:
+                req = urllib.request.Request(f"{API_BASE}/api/system/clean", data=b"{}", headers={"Content-Type": "application/json"}, method="POST")
+                with urllib.request.urlopen(req, timeout=45) as r:
+                    res = json.loads(r.read().decode())
+                items = ", ".join(res.get("cleaned") or []) or "-"
+                msg = t("clean_done", mb=res.get("freed_mb", 0), items=items).replace("**", "")
+            except Exception as e:
+                msg = str(e)
+            GLib.idle_add(lambda: (clean_lbl.set_text(msg), clean_b.set_sensitive(True), False)[2])
+        threading.Thread(target=_bg, daemon=True).start()
+    clean_b.connect("clicked", _run_clean)
+    grid.attach(clean_b, 1, 2, 1, 1)
     tab_sys.pack_start(grid, False, False, 0)
+    tab_sys.pack_start(clean_lbl, False, False, 0)
     nb.append_page(tab_sys, Gtk.Label(label=t("settings_sys")))
 
     dlg.add_buttons(t("close_btn"), Gtk.ResponseType.CLOSE)
@@ -2867,6 +2894,44 @@ class SpotlightWindow(Gtk.Window):
                 matches.append(("clip", one_line, f"{len(txt)} chars", "edit-paste", txt))
         self._populate_list(matches)
 
+    def show_podman_menu(self):
+        matches = [("podman_prune", t("podman_purge"), t("podman_purge_sub"), "user-trash", "")]
+        try:
+            with urllib.request.urlopen(f"{API_BASE}/api/podman", timeout=4) as r:
+                data = json.loads(r.read().decode())
+            for c in data.get("containers", []):
+                running = c.get("state", "").lower() == "running"
+                kind = "podman_stop" if running else "podman_rm"
+                mark = "▶" if running else "■"
+                act_lbl = "Parar" if running else "Remover"
+                sub = f"{c.get('status', '')} · {c.get('ports') or '-'} · Enter: {act_lbl}"
+                matches.append((kind, f"{mark} {c['name']} ({c.get('image', '')})", sub, "utilities-terminal", c["name"]))
+            for img in data.get("images", []):
+                matches.append(("podman_rmi", f"Imagem: {img['name']}", f"{img.get('size', '')} · Enter: Apagar imagem", "drive-harddisk", img["id"]))
+        except Exception:
+            pass
+        if len(matches) == 1:
+            self.hide_results()
+            self.show_reply(t("podman_empty"))
+            return
+        self._populate_list(matches)
+
+    def run_system_clean(self):
+        self.hide_results()
+        self.show_reply(t("clean_running"))
+        def _bg():
+            msg = t("clean_done", mb=0, items="-")
+            try:
+                req = urllib.request.Request(f"{API_BASE}/api/system/clean", data=b"{}", headers={"Content-Type": "application/json"}, method="POST")
+                with urllib.request.urlopen(req, timeout=45) as r:
+                    res = json.loads(r.read().decode())
+                items = ", ".join(res.get("cleaned") or []) or "-"
+                msg = t("clean_done", mb=res.get("freed_mb", 0), items=items)
+            except Exception as e:
+                msg = f"Erro: {e}"
+            GLib.idle_add(lambda: (self.show_reply(msg), False)[1])
+        threading.Thread(target=_bg, daemon=True).start()
+
     def show_ports_menu(self):
         matches = []
         try:
@@ -3168,6 +3233,22 @@ class SpotlightWindow(Gtk.Window):
                 GLib.idle_add(lambda: (self.hide_results(), self.show_reply(t("port_stopped")), False)[2])
             threading.Thread(target=_kill, daemon=True).start()
             self.clear_query()
+        elif kind in ("podman_stop", "podman_rm", "podman_rmi", "podman_prune"):
+            act = kind.split("_", 1)[1]
+            def _pod():
+                try:
+                    req = urllib.request.Request(
+                        f"{API_BASE}/api/podman/action",
+                        data=json.dumps({"action": act, "target": payload or None}).encode(),
+                        headers={"Content-Type": "application/json"},
+                        method="POST",
+                    )
+                    urllib.request.urlopen(req, timeout=30).read()
+                except Exception:
+                    pass
+                GLib.idle_add(lambda: (self.hide_results(), self.show_reply(t("podman_done")), False)[2])
+            threading.Thread(target=_pod, daemon=True).start()
+            self.clear_query()
         elif kind == "noop":
             pass
         elif kind in ("del_reminder", "del_cron"):
@@ -3212,6 +3293,12 @@ class SpotlightWindow(Gtk.Window):
             elif payload == "local:ports":
                 self.clear_query()
                 self.show_ports_menu()
+            elif payload == "local:podman":
+                self.clear_query()
+                self.show_podman_menu()
+            elif payload == "local:clean":
+                self.clear_query()
+                self.run_system_clean()
             elif payload == "local:proj":
                 self.clear_query()
                 self.show_projects_menu()
