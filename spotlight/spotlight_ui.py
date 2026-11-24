@@ -426,7 +426,8 @@ button.btn-primary:hover {
     font-size: 13px;
 }
 .tb-clock {
-    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum";
+    min-width: 44px;
 }
 scale {
     padding: 6px 8px;
