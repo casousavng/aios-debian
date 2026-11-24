@@ -144,12 +144,6 @@ update-desktop-database /usr/share/applications || true
 mkdir -p /etc/skel/Desktop /etc/skel/Documentos /etc/skel/Projetos /etc/skel/Downloads /etc/skel/Temp
 mkdir -p /etc/skel/.config/systemd/user/default.target.wants
 ln -sf ../aios-spotlight.service /etc/skel/.config/systemd/user/default.target.wants/aios-spotlight.service
-mkdir -p /etc/systemd/system/getty@tty1.service.d
-cat << 'GETTY' > /etc/systemd/system/getty@tty1.service.d/autologin.conf
-[Service]
-ExecStart=
-ExecStart=-/sbin/agetty --autologin aios --noclear %I $TERM
-GETTY
 systemctl enable NetworkManager cron earlyoom || true
 EOF
 chmod +x config/hooks/live/010-aios-setup.chroot
