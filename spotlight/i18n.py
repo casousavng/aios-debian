@@ -169,6 +169,7 @@ STRINGS = {
         "img_copy_btn": "Copiar Imagem",
         "img_copied": "Copiada!",
         "img_saved": "Guardada!",
+        "starting_req": "A iniciar pedido...",
     },
     "en": {
         "placeholder": "Ask anything, / for AI, # for system...",
@@ -332,6 +333,7 @@ STRINGS = {
         "img_copy_btn": "Copy Image",
         "img_copied": "Copied!",
         "img_saved": "Saved!",
+        "starting_req": "Starting request...",
     },
 }
 

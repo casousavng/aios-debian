@@ -132,6 +132,15 @@ window.enhanceReply = function() {
     document.body.appendChild(pop);
   }
   var popImg = document.getElementById('hover-img-el');
+  document.querySelectorAll('.bubble-ai img').forEach(function(img) {
+    if (img.id === 'hover-img-el') return;
+    var raw = img.getAttribute('src') || '';
+    var href = raw.startsWith('/') ? 'file://' + raw : raw;
+    var a = document.createElement('a');
+    a.href = href;
+    a.textContent = img.getAttribute('alt') || href.split('/').pop() || 'imagem';
+    img.parentNode.replaceChild(a, img);
+  });
   document.querySelectorAll('a[href^="file://"]').forEach(function(a) {
     var href = a.getAttribute('href') || '';
     if (!/\\.(png|jpe?g|webp|gif|bmp|svg)(\\?.*)?$/i.test(href) || a.dataset.boundHover) return;
@@ -2719,7 +2728,7 @@ class SpotlightWindow(Gtk.Window):
                         content_fmt = re.sub(r"@([^\s]+)", _chip, _html.escape(content)).replace("\n", "<br>")
                         html_part = f"<p>{content_fmt}</p>"
                     else:
-                        if live_stream and i + 2 >= len(parts) and (content.startswith("⚙ ") or content == t("processing")):
+                        if live_stream and i + 2 >= len(parts) and (content.startswith("⚙ ") or content in (t("processing"), t("starting_req"))):
                             import html as _html
                             html_part = f'<span class="thinking-pill"><span class="live-dot"></span>{_html.escape(content.lstrip("⚙ "))}</span>'
                         else:
@@ -3830,7 +3839,7 @@ class SpotlightWindow(Gtk.Window):
         chat_id_snapshot = self.current_chat_id
         self._save_history(prompt)
         self.clear_query()
-        self.show_reply(t("processing"), live_stream=True)
+        self.show_reply(t("starting_req"), live_stream=True)
         self._set_busy(True)
 
         def _worker():
