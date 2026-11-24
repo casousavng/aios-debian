@@ -1699,7 +1699,8 @@ def open_settings_dialog(spotlight):
         cur_fs = int(get_config().get("chat_font_size", 13))
         if getattr(spotlight, "_on_settings_font", None):
             spotlight._on_settings_font(cur_fs)
-        existing.present()
+        subprocess.Popen(["wmctrl", "-F", "-a", t("settings_title")])
+        existing.present_with_time(Gdk.CURRENT_TIME)
         return
     dlg = Gtk.Dialog(title=t("settings_title"), flags=0)
     dlg.set_wmclass("aios-settings", "AI-OS Settings")
