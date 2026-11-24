@@ -54,7 +54,12 @@ REPLY_HTML = """<!DOCTYPE html>
   th { background: rgba(255,255,255,0.08); color: #ffffff; }
   a { color: #67e8f9; text-decoration: none; }
   a:hover { text-decoration: underline; }
-  img { max-width: 100%; max-height: 220px; border-radius: 10px; cursor: pointer; display: block; margin: 6px 0; border: 1px solid rgba(255,255,255,0.14); }
+  img { max-width: 100%; max-height: 220px; border-radius: 10px; cursor: pointer; display: block; margin: 6px 0 4px; border: 1px solid rgba(255,255,255,0.14); }
+  .img-card { position: relative; display: inline-block; max-width: 100%; margin: 4px 0; }
+  .img-actions { display: flex; gap: 6px; margin-top: 4px; }
+  .img-act-btn { background: rgba(15, 23, 42, 0.85); border: 1px solid rgba(103, 232, 249, 0.32);
+    border-radius: 6px; color: #67e8f9; font-size: 11px; padding: 2px 9px; cursor: pointer; font-family: system-ui, sans-serif; }
+  .img-act-btn:hover { background: rgba(103, 232, 249, 0.22); color: #ffffff; }
   .msg-row { display: flex; width: 100%; margin: 8px 0; }
   .msg-user { justify-content: flex-end; }
   .msg-ai { justify-content: flex-start; }
@@ -120,11 +125,37 @@ window.enhanceReply = function() {
     };
     b.appendChild(mb);
   });
+  document.querySelectorAll('a[href^="file://"]').forEach(function(a) {
+    var href = a.getAttribute('href') || '';
+    if (/\.(png|jpe?g|webp|gif|bmp|svg)(\?.*)?$/i.test(href) && !a.dataset.thumbInjected) {
+      a.dataset.thumbInjected = '1';
+      var im = document.createElement('img');
+      im.src = href;
+      a.parentNode.insertBefore(im, a.nextSibling);
+    }
+  });
   document.querySelectorAll('img').forEach(function(img) {
     var raw = img.getAttribute('src') || '';
     if (raw.startsWith('/')) img.src = 'file://' + raw;
     if (img.dataset.boundPreview) return;
     img.dataset.boundPreview = '1';
+    var card = document.createElement('div');
+    card.className = 'img-card';
+    img.parentNode.insertBefore(card, img);
+    card.appendChild(img);
+    var bar = document.createElement('div');
+    bar.className = 'img-actions';
+    var bPrev = document.createElement('button');
+    bPrev.className = 'img-act-btn';
+    bPrev.textContent = 'Preview';
+    bPrev.onclick = function(e) { e.preventDefault(); e.stopPropagation(); window.location.href = 'aios-preview://' + encodeURIComponent(img.src); };
+    var bSave = document.createElement('button');
+    bSave.className = 'img-act-btn';
+    bSave.textContent = 'Guardar';
+    bSave.onclick = function(e) { e.preventDefault(); e.stopPropagation(); window.location.href = 'aios-save://' + encodeURIComponent(img.src); };
+    bar.appendChild(bPrev);
+    bar.appendChild(bSave);
+    card.appendChild(bar);
     img.onclick = function(e) {
       e.preventDefault();
       e.stopPropagation();
@@ -2611,12 +2642,29 @@ class SpotlightWindow(Gtk.Window):
     def _on_reply_policy(self, _view, decision, d_type):
         if d_type == WebKit2.PolicyDecisionType.NAVIGATION_ACTION:
             uri = decision.get_navigation_action().get_request().get_uri() or ""
-            if uri.startswith("aios-preview://"):
+            if uri.startswith(("aios-preview://", "aios-save://")):
                 from urllib.parse import unquote, urlparse
-                raw = unquote(uri[len("aios-preview://"):])
+                is_save = uri.startswith("aios-save://")
+                raw = unquote(uri.split("://", 1)[1])
                 fpath = unquote(urlparse(raw).path) if raw.startswith("file://") else raw
                 decision.ignore()
-                open_image_preview(self, fpath)
+                if is_save:
+                    p = Path(fpath)
+                    if p.exists():
+                        fc = Gtk.FileChooserDialog(title=t("img_save_btn"), parent=self, action=Gtk.FileChooserAction.SAVE)
+                        fc.add_buttons(Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL, Gtk.STOCK_SAVE, Gtk.ResponseType.OK)
+                        fc.set_do_overwrite_confirmation(True)
+                        for d in (HOME / "Imagens", HOME / "Pictures", HOME / "Desktop"):
+                            if d.exists():
+                                fc.set_current_folder(str(d))
+                                break
+                        fc.set_current_name(p.name)
+                        if fc.run() == Gtk.ResponseType.OK:
+                            import shutil
+                            shutil.copy2(str(p), fc.get_filename())
+                        fc.destroy()
+                else:
+                    open_image_preview(self, fpath)
                 return True
             if uri.startswith(("http://", "https://")):
                 decision.ignore()
@@ -3641,7 +3689,7 @@ class SpotlightWindow(Gtk.Window):
         if self.draft_view:
             self.draft_view.set_editable(not busy)
             self.draft_view.set_sensitive(not busy)
-        self.placeholder_lbl.set_text(t("processing") if busy else t("placeholder"))
+        self.placeholder_lbl.set_text(t("placeholder"))
         if not busy:
             self.entry.grab_focus()
         if self.topbar:
