@@ -1475,9 +1475,11 @@ def open_artifacts_dialog(parent=None):
     box.set_spacing(8)
     scroll = Gtk.ScrolledWindow()
     scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+    scroll.set_overlay_scrolling(False)
     scroll.set_min_content_height(260)
     scroll.set_max_content_height(280)
     list_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+    list_box.set_margin_end(8)
     scroll.add(list_box)
     box.pack_start(scroll, True, True, 0)
 
@@ -1554,9 +1556,11 @@ def open_chats_dialog(spotlight, parent=None):
     box.set_spacing(8)
     scroll = Gtk.ScrolledWindow()
     scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+    scroll.set_overlay_scrolling(False)
     scroll.set_min_content_height(260)
     scroll.set_max_content_height(280)
     list_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+    list_box.set_margin_end(8)
     scroll.add(list_box)
     box.pack_start(scroll, True, True, 0)
 
