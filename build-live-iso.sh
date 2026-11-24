@@ -89,6 +89,9 @@ python3-fastapi
 python3-uvicorn
 python3-psutil
 python3-markdown
+python3-openpyxl
+python3-docx
+python3-pptx
 gir1.2-gtk-3.0
 gir1.2-webkit2-4.1
 EOF

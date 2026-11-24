@@ -165,6 +165,10 @@ STRINGS = {
         "clean_btn": "Limpar Sistema",
         "clean_running": "A limpar caches e lixo do sistema...",
         "clean_done": "Limpeza concluída: **{mb} MB** libertados ({items}).",
+        "img_save_btn": "Guardar Como...",
+        "img_copy_btn": "Copiar Imagem",
+        "img_copied": "Copiada!",
+        "img_saved": "Guardada!",
     },
     "en": {
         "placeholder": "Ask anything, / for AI, # for system...",
@@ -324,6 +328,10 @@ STRINGS = {
         "clean_btn": "System Clean",
         "clean_running": "Cleaning system caches and trash...",
         "clean_done": "Cleanup complete: **{mb} MB** freed ({items}).",
+        "img_save_btn": "Save As...",
+        "img_copy_btn": "Copy Image",
+        "img_copied": "Copied!",
+        "img_saved": "Saved!",
     },
 }
 

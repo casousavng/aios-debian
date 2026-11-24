@@ -19,7 +19,7 @@ from i18n import get_config, get_lang, human_cron, is_dangerous_prompt, set_lang
 
 gi.require_version("Gtk", "3.0")
 gi.require_version("Gdk", "3.0")
-from gi.repository import Gdk, GLib, Gtk, Pango  # noqa: E402
+from gi.repository import Gdk, GdkPixbuf, GLib, Gtk, Pango  # noqa: E402
 
 WebKit2 = None
 
@@ -54,6 +54,7 @@ REPLY_HTML = """<!DOCTYPE html>
   th { background: rgba(255,255,255,0.08); color: #ffffff; }
   a { color: #67e8f9; text-decoration: none; }
   a:hover { text-decoration: underline; }
+  img { max-width: 100%; max-height: 220px; border-radius: 10px; cursor: pointer; display: block; margin: 6px 0; border: 1px solid rgba(255,255,255,0.14); }
   .msg-row { display: flex; width: 100%; margin: 8px 0; }
   .msg-user { justify-content: flex-end; }
   .msg-ai { justify-content: flex-start; }
@@ -118,6 +119,17 @@ window.enhanceReply = function() {
       setTimeout(function() { mb.textContent = 'Copiar'; }, 1200);
     };
     b.appendChild(mb);
+  });
+  document.querySelectorAll('img').forEach(function(img) {
+    var raw = img.getAttribute('src') || '';
+    if (raw.startsWith('/')) img.src = 'file://' + raw;
+    if (img.dataset.boundPreview) return;
+    img.dataset.boundPreview = '1';
+    img.onclick = function(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      window.location.href = 'aios-preview://' + encodeURIComponent(img.src);
+    };
   });
 };
 </script></head><body>%BODY%<script>window.enhanceReply();</script></body></html>"""
@@ -1353,6 +1365,66 @@ class ControlPopover(Gtk.Window):
         GLib.idle_add(_apply)
 
 
+def open_image_preview(parent, fpath):
+    p = Path(fpath)
+    if not p.exists():
+        return
+    dlg = Gtk.Dialog(title=p.name, transient_for=parent if isinstance(parent, Gtk.Window) else None, flags=0)
+    dlg.set_wmclass("AI-OS", "AI-OS")
+    dlg.set_position(Gtk.WindowPosition.CENTER_ALWAYS)
+    dlg.set_default_size(520, 400)
+    box = dlg.get_content_area()
+    box.set_border_width(12)
+    box.set_spacing(8)
+    orig_pb = None
+    try:
+        orig_pb = GdkPixbuf.Pixbuf.new_from_file(str(p))
+        w, h = orig_pb.get_width(), orig_pb.get_height()
+        scale = min(680 / max(w, 1), 460 / max(h, 1), 1.0)
+        disp_pb = orig_pb if scale >= 1.0 else orig_pb.scale_simple(max(1, int(w * scale)), max(1, int(h * scale)), GdkPixbuf.InterpType.BILINEAR)
+        img_w = Gtk.Image.new_from_pixbuf(disp_pb)
+        kb = round(p.stat().st_size / 1024, 1)
+        meta = Gtk.Label(label=f"{p.name} · {w}×{h} px · {kb} KB", xalign=0)
+        meta.get_style_context().add_class("pop-sub")
+        box.pack_start(meta, False, False, 0)
+        box.pack_start(img_w, True, True, 0)
+    except Exception as e:
+        box.pack_start(Gtk.Label(label=str(e)), True, True, 0)
+
+    act_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+    save_b = Gtk.Button(label=t("img_save_btn"))
+    copy_b = Gtk.Button(label=t("img_copy_btn"))
+    def _save(_):
+        fc = Gtk.FileChooserDialog(title=t("img_save_btn"), parent=dlg, action=Gtk.FileChooserAction.SAVE)
+        fc.add_buttons(Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL, Gtk.STOCK_SAVE, Gtk.ResponseType.OK)
+        fc.set_do_overwrite_confirmation(True)
+        for d in (HOME / "Imagens", HOME / "Pictures", HOME / "Desktop"):
+            if d.exists():
+                fc.set_current_folder(str(d))
+                break
+        fc.set_current_name(p.name)
+        if fc.run() == Gtk.ResponseType.OK:
+            import shutil
+            shutil.copy2(str(p), fc.get_filename())
+            save_b.set_label(t("img_saved"))
+            GLib.timeout_add(1600, lambda: (save_b.get_realized() and save_b.set_label(t("img_save_btn")), False)[1])
+        fc.destroy()
+    def _copy(_):
+        if orig_pb:
+            Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD).set_image(orig_pb)
+            copy_b.set_label(t("img_copied"))
+            GLib.timeout_add(1600, lambda: (copy_b.get_realized() and copy_b.set_label(t("img_copy_btn")), False)[1])
+    save_b.connect("clicked", _save)
+    copy_b.connect("clicked", _copy)
+    act_row.pack_start(save_b, True, True, 0)
+    act_row.pack_start(copy_b, True, True, 0)
+    box.pack_start(act_row, False, False, 0)
+    dlg.add_buttons(t("close_btn"), Gtk.ResponseType.CLOSE)
+    dlg.connect("response", lambda d, *_: d.destroy())
+    dlg.show_all()
+    dlg.present()
+
+
 def open_displays_dialog(parent=None):
     outputs = []
     try:
@@ -2531,6 +2603,13 @@ class SpotlightWindow(Gtk.Window):
     def _on_reply_policy(self, _view, decision, d_type):
         if d_type == WebKit2.PolicyDecisionType.NAVIGATION_ACTION:
             uri = decision.get_navigation_action().get_request().get_uri() or ""
+            if uri.startswith("aios-preview://"):
+                from urllib.parse import unquote, urlparse
+                raw = unquote(uri[len("aios-preview://"):])
+                fpath = unquote(urlparse(raw).path) if raw.startswith("file://") else raw
+                decision.ignore()
+                open_image_preview(self, fpath)
+                return True
             if uri.startswith(("http://", "https://")):
                 decision.ignore()
                 subprocess.Popen(["chromium", uri])
@@ -2539,7 +2618,9 @@ class SpotlightWindow(Gtk.Window):
                 from urllib.parse import unquote, urlparse
                 fpath = unquote(urlparse(uri).path)
                 decision.ignore()
-                if fpath.endswith(".md"):
+                if fpath.lower().endswith((".png", ".jpg", ".jpeg", ".webp", ".gif", ".bmp", ".svg")):
+                    open_image_preview(self, fpath)
+                elif fpath.endswith(".md"):
                     subprocess.Popen(["/opt/ai-os/spotlight/litemd.py", fpath])
                 else:
                     subprocess.Popen(["xdg-open", fpath])
