@@ -1440,6 +1440,7 @@ def open_settings_dialog(spotlight):
     box.pack_start(nb, True, True, 0)
 
     # Tab 1: AI Agent
+    pt = get_lang() == "pt"
     tab_ai = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
     tab_ai.set_border_width(14)
     cur_model, cur_mode = "", "auto"
@@ -1451,8 +1452,10 @@ def open_settings_dialog(spotlight):
             cur_mode = sd.get("agentMode", "auto")
     except Exception:
         pass
+    prof_hdr = Gtk.Label(label="Modelo & Perfil" if pt else "Model & Profile", xalign=0)
+    prof_hdr.get_style_context().add_class("pop-sub")
+    tab_ai.pack_start(prof_hdr, False, False, 0)
     model_lbl = Gtk.Label(label=f"{cur_model or 'AI-OS'} ({cur_mode})", xalign=0)
-    model_lbl.get_style_context().add_class("pop-sub")
     tab_ai.pack_start(model_lbl, False, False, 0)
 
     prof_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
@@ -1477,8 +1480,12 @@ def open_settings_dialog(spotlight):
         prof_row.pack_start(b, True, True, 0)
     tab_ai.pack_start(prof_row, False, False, 0)
 
+    tab_ai.pack_start(Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL), False, False, 4)
+    auth_hdr = Gtk.Label(label="Conta & Consumo" if pt else "Account & Usage", xalign=0)
+    auth_hdr.get_style_context().add_class("pop-sub")
+    tab_ai.pack_start(auth_hdr, False, False, 0)
+
     auth_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
-    pt = get_lang() == "pt"
     login_b = Gtk.Button(label="Iniciar Sessão" if pt else "Sign In")
     login_b.connect("clicked", lambda *_: (dlg.destroy(), spotlight.start_agy_login()))
     logout_b = Gtk.Button(label="Terminar Sessão" if pt else "Sign Out")
@@ -1539,6 +1546,7 @@ def open_settings_dialog(spotlight):
     spotlight._on_settings_font = _sync_from_chat
     tab_ui.pack_start(fs_scale, False, False, 0)
     tab_ui.pack_start(prev_frame, False, False, 0)
+    tab_ui.pack_start(Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL), False, False, 4)
 
     lang_hdr = Gtk.Label(label="Idioma" if get_lang() == "pt" else "Language", xalign=0)
     lang_hdr.get_style_context().add_class("pop-sub")
@@ -1597,22 +1605,29 @@ def open_settings_dialog(spotlight):
     # Tab 3: System (non-duplicated OS tools)
     tab_sys = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
     tab_sys.set_border_width(14)
-    grid = Gtk.Grid(column_spacing=8, row_spacing=8, column_homogeneous=True)
+    diag_hdr = Gtk.Label(label="Hardware & Diagnóstico" if pt else "Hardware & Diagnostics", xalign=0)
+    diag_hdr.get_style_context().add_class("pop-sub")
+    tab_sys.pack_start(diag_hdr, False, False, 0)
+    diag_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
     disp_b = Gtk.Button(label=t("displays_short"))
     disp_b.connect("clicked", lambda *_: open_displays_dialog(dlg))
-    grid.attach(disp_b, 0, 0, 1, 1)
-    upd_b = Gtk.Button(label="Atualizar Sistema" if pt else "System Update")
-    upd_b.connect("clicked", lambda *_: (dlg.destroy(), subprocess.Popen(["/opt/ai-os/spotlight/update.sh"])))
-    grid.attach(upd_b, 1, 0, 1, 1)
     health_b = Gtk.Button(label="Saúde do SO" if pt else "OS Health")
     health_b.connect("clicked", lambda *_: (dlg.destroy(), spotlight.execute_item(("slash", "#health", "", "", "local:health"))))
-    grid.attach(health_b, 0, 1, 1, 1)
     keys_b = Gtk.Button(label="Atalhos" if pt else "Shortcuts")
     keys_b.connect("clicked", lambda *_: (dlg.destroy(), spotlight.execute_item(("slash", "#keys", "", "", "local:keys"))))
-    grid.attach(keys_b, 1, 1, 1, 1)
+    for b in (disp_b, health_b, keys_b):
+        diag_row.pack_start(b, True, True, 0)
+    tab_sys.pack_start(diag_row, False, False, 0)
+
+    tab_sys.pack_start(Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL), False, False, 4)
+    maint_hdr = Gtk.Label(label="Manutenção & Containers" if pt else "Maintenance & Containers", xalign=0)
+    maint_hdr.get_style_context().add_class("pop-sub")
+    tab_sys.pack_start(maint_hdr, False, False, 0)
+    maint_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+    upd_b = Gtk.Button(label="Atualizar Sistema" if pt else "System Update")
+    upd_b.connect("clicked", lambda *_: (dlg.destroy(), subprocess.Popen(["/opt/ai-os/spotlight/update.sh"])))
     podman_b = Gtk.Button(label="Podman")
     podman_b.connect("clicked", lambda *_: (dlg.destroy(), spotlight.execute_item(("slash", "#podman", "", "", "local:podman"))))
-    grid.attach(podman_b, 0, 2, 1, 1)
     clean_b = Gtk.Button(label=t("clean_btn"))
     clean_lbl = Gtk.Label(label="", xalign=0)
     clean_lbl.set_line_wrap(True)
@@ -1633,8 +1648,9 @@ def open_settings_dialog(spotlight):
             GLib.idle_add(lambda: (clean_lbl.set_text(msg), clean_b.set_sensitive(True), False)[2])
         threading.Thread(target=_bg, daemon=True).start()
     clean_b.connect("clicked", _run_clean)
-    grid.attach(clean_b, 1, 2, 1, 1)
-    tab_sys.pack_start(grid, False, False, 0)
+    for b in (upd_b, podman_b, clean_b):
+        maint_row.pack_start(b, True, True, 0)
+    tab_sys.pack_start(maint_row, False, False, 0)
     tab_sys.pack_start(clean_lbl, False, False, 0)
     nb.append_page(tab_sys, Gtk.Label(label=t("settings_sys")))
 
