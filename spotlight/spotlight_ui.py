@@ -425,6 +425,9 @@ button.btn-primary:hover {
     color: #ffffff;
     font-size: 13px;
 }
+.tb-clock {
+    font-variant-numeric: tabular-nums;
+}
 scale {
     padding: 6px 8px;
 }
@@ -1743,7 +1746,10 @@ class TopBarWindow(Gtk.Window):
         bar.pack_end(self.bell_btn, False, False, 0)
 
         self.clock_lbl = Gtk.Label(label="--:--")
+        self.clock_lbl.set_width_chars(5)
+        self.clock_lbl.set_xalign(0.5)
         self.clock_lbl.get_style_context().add_class("topbar-item")
+        self.clock_lbl.get_style_context().add_class("tb-clock")
         status_inner.pack_end(self.clock_lbl, False, False, 0)
 
         bat_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=4)
