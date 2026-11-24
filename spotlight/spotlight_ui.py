@@ -570,6 +570,7 @@ def get_system_commands():
         ("#audit", t("slash_audit"), "local:audit"),
         ("#ports", t("slash_ports"), "local:ports"),
         ("#podman", t("slash_podman"), "local:podman"),
+        ("#artifacts", t("slash_artifacts"), "local:artifacts"),
         ("#clean", t("slash_clean"), "local:clean"),
         ("#proj", t("slash_proj"), "local:proj"),
         ("#grep ", t("slash_grep"), "fill:#grep "),
@@ -1463,6 +1464,82 @@ def open_image_preview(parent, fpath):
     dlg.present()
 
 
+def open_artifacts_dialog(parent=None):
+    from datetime import datetime
+    dlg = Gtk.Dialog(title=t("artifacts_title"), transient_for=parent if isinstance(parent, Gtk.Window) else None, flags=0)
+    dlg.set_wmclass("AI-OS", "AI-OS")
+    dlg.set_position(Gtk.WindowPosition.CENTER_ALWAYS)
+    dlg.set_default_size(560, 380)
+    box = dlg.get_content_area()
+    box.set_border_width(12)
+    box.set_spacing(8)
+    scroll = Gtk.ScrolledWindow()
+    scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+    list_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+    scroll.add(list_box)
+    box.pack_start(scroll, True, True, 0)
+
+    def _reload():
+        for c in list_box.get_children():
+            list_box.remove(c)
+        items = []
+        try:
+            with urllib.request.urlopen(f"{API_BASE}/api/artifacts", timeout=4) as r:
+                items = json.loads(r.read().decode()).get("items", [])
+        except Exception:
+            pass
+        if not items:
+            lbl = Gtk.Label(label=t("artifacts_empty"))
+            lbl.get_style_context().add_class("pop-sub")
+            list_box.pack_start(lbl, False, False, 12)
+        for it in items:
+            row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+            ts = datetime.fromtimestamp(it["mtime"]).strftime("%d/%m %H:%M")
+            lbl = Gtk.Label(label=f"{it['name']}  ({it['size_kb']} KB · {ts})", xalign=0)
+            lbl.set_ellipsize(Pango.EllipsizeMode.MIDDLE)
+            row.pack_start(lbl, True, True, 0)
+            open_b = Gtk.Button(label="Abrir" if get_lang() == "pt" else "Open")
+            open_b.get_style_context().add_class("reply-btn")
+            def _open(_, fp=it["path"]):
+                if fp.lower().endswith((".png", ".jpg", ".jpeg", ".webp", ".gif", ".bmp", ".svg")):
+                    open_image_preview(dlg, fp)
+                elif fp.endswith(".md"):
+                    subprocess.Popen(["/opt/ai-os/spotlight/litemd.py", fp])
+                else:
+                    subprocess.Popen(["xdg-open", fp])
+            open_b.connect("clicked", _open)
+            del_b = Gtk.Button(label="✕")
+            del_b.get_style_context().add_class("reply-btn")
+            def _del(_, fp=it["path"]):
+                try:
+                    req = urllib.request.Request(f"{API_BASE}/api/artifacts/delete", data=json.dumps({"path": fp}).encode(), headers={"Content-Type": "application/json"}, method="POST")
+                    urllib.request.urlopen(req, timeout=4).read()
+                except Exception:
+                    pass
+                _reload()
+            del_b.connect("clicked", _del)
+            row.pack_end(del_b, False, False, 0)
+            row.pack_end(open_b, False, False, 0)
+            list_box.pack_start(row, False, False, 0)
+        list_box.show_all()
+
+    clear_b = Gtk.Button(label=t("artifacts_clear_all"))
+    def _clear_all(_):
+        try:
+            req = urllib.request.Request(f"{API_BASE}/api/artifacts/delete", data=json.dumps({"all": True}).encode(), headers={"Content-Type": "application/json"}, method="POST")
+            urllib.request.urlopen(req, timeout=8).read()
+        except Exception:
+            pass
+        _reload()
+    clear_b.connect("clicked", _clear_all)
+    box.pack_start(clear_b, False, False, 0)
+    dlg.add_buttons(t("close_btn"), Gtk.ResponseType.CLOSE)
+    dlg.connect("response", lambda d, *_: d.destroy())
+    _reload()
+    dlg.show_all()
+    dlg.present()
+
+
 def open_displays_dialog(parent=None):
     outputs = []
     try:
@@ -1738,6 +1815,8 @@ def open_settings_dialog(spotlight):
     upd_b.connect("clicked", lambda *_: (dlg.destroy(), subprocess.Popen(["/opt/ai-os/spotlight/update.sh"])))
     podman_b = Gtk.Button(label="Podman")
     podman_b.connect("clicked", lambda *_: (dlg.destroy(), spotlight.execute_item(("slash", "#podman", "", "", "local:podman"))))
+    art_b = Gtk.Button(label=t("artifacts_btn"))
+    art_b.connect("clicked", lambda *_: open_artifacts_dialog(dlg))
     clean_b = Gtk.Button(label=t("clean_btn"))
     clean_lbl = Gtk.Label(label="", xalign=0)
     clean_lbl.set_line_wrap(True)
@@ -1758,7 +1837,7 @@ def open_settings_dialog(spotlight):
             GLib.idle_add(lambda: (clean_lbl.set_text(msg), clean_b.set_sensitive(True), False)[2])
         threading.Thread(target=_bg, daemon=True).start()
     clean_b.connect("clicked", _run_clean)
-    for b in (upd_b, podman_b, clean_b):
+    for b in (upd_b, podman_b, art_b, clean_b):
         maint_row.pack_start(b, True, True, 0)
     tab_sys.pack_start(maint_row, False, False, 0)
     tab_sys.pack_start(clean_lbl, False, False, 0)
@@ -3476,6 +3555,10 @@ class SpotlightWindow(Gtk.Window):
             elif payload == "local:podman":
                 self.clear_query()
                 self.show_podman_menu()
+            elif payload == "local:artifacts":
+                self.clear_query()
+                self.hide_results()
+                open_artifacts_dialog(self)
             elif payload == "local:clean":
                 self.clear_query()
                 self.run_system_clean()

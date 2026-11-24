@@ -1008,6 +1008,55 @@ def kill_port(req: KillPortRequest):
     return {"ok": False}
 
 
+def _collect_artifacts() -> list[dict]:
+    home = Path.home()
+    roots = [home / "Temp"]
+    brain = home / ".gemini" / "antigravity-cli" / "brain"
+    if brain.exists():
+        roots.extend(d for d in brain.iterdir() if d.is_dir() and not d.name.startswith("."))
+    exts = {".png", ".jpg", ".jpeg", ".webp", ".gif", ".svg", ".xlsx", ".docx", ".pptx", ".pdf", ".md", ".txt", ".csv"}
+    items = []
+    for root in roots:
+        if not root.exists():
+            continue
+        for f in root.iterdir():
+            if not f.is_file() or f.name.startswith("."):
+                continue
+            if f.suffix.lower() not in exts or f.name.endswith(".metadata.json"):
+                continue
+            try:
+                st = f.stat()
+                items.append({"path": str(f), "name": f.name, "size_kb": round(st.st_size / 1024, 1), "mtime": int(st.st_mtime)})
+            except OSError:
+                pass
+    items.sort(key=lambda x: x["mtime"], reverse=True)
+    return items
+
+
+@app.get("/api/artifacts")
+def list_artifacts():
+    return {"items": _collect_artifacts()}
+
+
+class ArtifactDeleteRequest(BaseModel):
+    path: str | None = None
+    all: bool = False
+
+
+@app.post("/api/artifacts/delete")
+def delete_artifacts(req: ArtifactDeleteRequest):
+    allowed = {it["path"] for it in _collect_artifacts()}
+    removed = 0
+    targets = list(allowed) if req.all else ([req.path] if req.path in allowed else [])
+    for p in targets:
+        try:
+            Path(p).unlink(missing_ok=True)
+            removed += 1
+        except OSError:
+            pass
+    return {"ok": True, "removed": removed}
+
+
 if __name__ == "__main__":
     _schedule_all_reminders()
     uvicorn.run(app, host="127.0.0.1", port=8765, log_level="warning")

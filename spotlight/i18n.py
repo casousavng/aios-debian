@@ -170,6 +170,11 @@ STRINGS = {
         "img_copied": "Copiada!",
         "img_saved": "Guardada!",
         "starting_req": "A iniciar pedido...",
+        "artifacts_btn": "Artefactos IA",
+        "artifacts_title": "Artefactos Gerados pela IA",
+        "artifacts_empty": "Sem artefactos temporários gerados.",
+        "artifacts_clear_all": "Apagar Todos",
+        "slash_artifacts": "Ver e gerir ficheiros e imagens gerados pela IA",
     },
     "en": {
         "placeholder": "Ask anything, / for AI, # for system...",
@@ -334,6 +339,11 @@ STRINGS = {
         "img_copied": "Copied!",
         "img_saved": "Saved!",
         "starting_req": "Starting request...",
+        "artifacts_btn": "AI Artifacts",
+        "artifacts_title": "AI Generated Artifacts",
+        "artifacts_empty": "No temporary generated artifacts.",
+        "artifacts_clear_all": "Delete All",
+        "slash_artifacts": "View and manage AI generated files & images",
     },
 }
 
