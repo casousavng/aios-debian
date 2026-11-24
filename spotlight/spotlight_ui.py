@@ -516,8 +516,8 @@ def get_slash_commands():
         ("/models", t("slash_models"), "ask_now:/models"),
         ("/agents", t("slash_agents"), "ask_now:/agents"),
         ("/mcp", t("slash_mcp"), "ask_now:/mcp"),
-        ("/new", t("slash_new"), "ask_now:/new"),
-        ("/clear", t("slash_clear"), "ask_now:/clear"),
+        ("/new", t("slash_new"), "local:new_chat"),
+        ("/clear", t("slash_clear"), "local:new_chat"),
         ("/compact", t("slash_compact"), "ask_now:/compact"),
         ("/plan ", t("slash_plan"), "fill:/plan "),
         ("/changelog", t("slash_changelog"), "ask_now:/changelog"),
@@ -1323,7 +1323,7 @@ class ControlPopover(Gtk.Window):
             bdevs = []
 
         def _apply():
-            if not self.is_visible():
+            if not self.is_visible() and not prompt.strip().startswith(("/usage", "/models", "/agents", "/help")):
                 return False
             for child in self.wifi_box.get_children():
                 self.wifi_box.remove(child)
@@ -2164,7 +2164,7 @@ class SpotlightWindow(Gtk.Window):
         self.new_chat_btn = Gtk.Button(label=t("new_chat_btn"))
         self.new_chat_btn.get_style_context().add_class("btn-primary")
         self.new_chat_btn.set_can_focus(False)
-        self.new_chat_btn.connect("clicked", lambda *_: (setattr(self, "current_chat_id", None), update_config(last_chat_id=None), self.hide_results(), self.clear_query(), self._flash_placeholder(t("new_chat"), 2500), self.entry.grab_focus()))
+        self.new_chat_btn.connect("clicked", lambda *_: self._reset_new_chat())
         actions_row.pack_start(self.new_chat_btn, False, False, 0)
 
         self.litemd_btn = Gtk.Button(label=t("open_litemd"))
@@ -2368,6 +2368,14 @@ class SpotlightWindow(Gtk.Window):
                 f"document.body.style.fontSize='{px}px'; (() => {{ const r = document.createRange(); r.selectNodeContents(document.body); return Math.max(32, Math.ceil(r.getBoundingClientRect().height) + 12); }})();",
                 -1, None, None, None, self._on_reply_height, None,
             )
+
+    def _reset_new_chat(self):
+        self.current_chat_id = None
+        update_config(last_chat_id=None)
+        self.hide_results()
+        self.clear_query()
+        self._flash_placeholder(t("new_chat"), 2500)
+        self.entry.grab_focus()
 
     def _flash_placeholder(self, msg, ms=2500):
         fid = getattr(self, "_flash_id", 0) + 1
@@ -3405,6 +3413,8 @@ class SpotlightWindow(Gtk.Window):
             elif payload == "local:clip":
                 self.clear_query()
                 self.show_clip_history()
+            elif payload == "local:new_chat":
+                self._reset_new_chat()
             elif payload == "local:ports":
                 self.clear_query()
                 self.show_ports_menu()
