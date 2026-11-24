@@ -2,11 +2,13 @@
 """AI-OS Native macOS-style Spotlight launcher & AI command bar."""
 import glob
 import json
+import math
 import os
 import re
 import signal
 import subprocess
 import threading
+import time
 import urllib.request
 from pathlib import Path
 
@@ -2133,6 +2135,7 @@ class SpotlightWindow(Gtk.Window):
         top_row.get_style_context().add_class("search-row")
 
         icon_btn = Gtk.Button(label="✦")
+        self.star_btn = icon_btn
         icon_btn.set_valign(Gtk.Align.CENTER)
         icon_btn.set_margin_top(2)
         icon_btn.set_can_focus(False)
@@ -2141,6 +2144,7 @@ class SpotlightWindow(Gtk.Window):
         icon_btn.set_tooltip_text(t("settings_title"))
         icon_btn.connect("clicked", lambda *_: open_settings_dialog(self))
         top_row.pack_start(icon_btn, False, False, 0)
+        GLib.timeout_add(140, self._pulse_star)
 
         self.entry_scroll = Gtk.ScrolledWindow()
         self.entry_scroll.set_shadow_type(Gtk.ShadowType.NONE)
@@ -3762,6 +3766,12 @@ class SpotlightWindow(Gtk.Window):
     def on_row_activated(self, _, row):
         if row and self.results:
             self.execute_item(self.results[row.get_index()])
+
+    def _pulse_star(self):
+        if self.get_visible() and hasattr(self, "star_btn"):
+            op = 0.71 + 0.29 * math.sin(time.monotonic() * (2 * math.pi / 4.2))
+            self.star_btn.set_opacity(op)
+        return True
 
     def on_key_press(self, _, event):
         key = event.keyval
