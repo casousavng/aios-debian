@@ -2016,6 +2016,10 @@ class TopBarWindow(Gtk.Window):
             wb = Gtk.Button(label=str(idx + 1))
             wb.set_can_focus(False)
             wb.set_valign(Gtk.Align.CENTER)
+            wb.set_size_request(28, -1)
+            if wb.get_child():
+                wb.get_child().set_width_chars(2)
+                wb.get_child().set_xalign(0.5)
             wb.get_style_context().add_class("win-dot")
             wb.connect("clicked", lambda _, i=idx: subprocess.Popen(["wmctrl", "-s", str(i)]))
             self.ws_btns.append(wb)
