@@ -3776,7 +3776,33 @@ class SpotlightWindow(Gtk.Window):
         return False
 
 
+def _acquire_single_instance():
+    import fcntl
+    lock_path = Path(f"/tmp/aios-spotlight-{os.getuid()}.lock")
+    fd = open(lock_path, "a+", encoding="utf-8")
+    try:
+        fcntl.flock(fd.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except BlockingIOError:
+        try:
+            fd.seek(0)
+            pid = int(fd.read().strip() or "0")
+            if pid > 1:
+                os.kill(pid, signal.SIGUSR1)
+        except Exception:
+            pass
+        fd.close()
+        return None
+    fd.seek(0)
+    fd.truncate()
+    fd.write(str(os.getpid()))
+    fd.flush()
+    return fd
+
+
 def main():
+    _lock_fd = _acquire_single_instance()
+    if _lock_fd is None:
+        return
     topbar = TopBarWindow()
     win = SpotlightWindow(topbar=topbar)
     GLib.unix_signal_add(GLib.PRIORITY_DEFAULT, signal.SIGUSR1, lambda *_: (win.focus_spotlight(), True)[1])
