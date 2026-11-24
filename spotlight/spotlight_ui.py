@@ -2172,7 +2172,7 @@ class SpotlightWindow(Gtk.Window):
         self.entry_scroll = Gtk.ScrolledWindow()
         self.entry_scroll.set_shadow_type(Gtk.ShadowType.NONE)
         self.entry_scroll.get_style_context().add_class("clean-scroll")
-        self.entry_scroll.set_policy(Gtk.PolicyType.EXTERNAL, Gtk.PolicyType.NEVER)
+        self.entry_scroll.set_policy(Gtk.PolicyType.EXTERNAL, Gtk.PolicyType.EXTERNAL)
         self.entry_scroll.set_min_content_height(22)
         self.entry_scroll.set_max_content_height(24)
         self.entry_scroll.set_size_request(-1, 24)
