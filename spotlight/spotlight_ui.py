@@ -2941,7 +2941,7 @@ class SpotlightWindow(Gtk.Window):
             self._last_match_keys = None
             was_open = was_reply or self.list_scroll.is_visible() or self.draft_box.is_visible() or self.divider.is_visible()
             self.list_scroll.hide()
-            if "\n" in raw or len(raw) > 54:
+            if "\n" in raw or len(raw) > 75:
                 self.draft_view.show()
                 self.draft_box.show()
                 self.divider.show()
