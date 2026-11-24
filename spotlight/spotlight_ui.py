@@ -1554,12 +1554,19 @@ def open_settings_dialog(spotlight):
             if spotlight.topbar and not spotlight.topbar._confirm_lang_switch():
                 return
             set_lang(c)
-            for k, btn in lang_btns.items():
-                ctx = btn.get_style_context()
-                ctx.add_class("seg-btn-active") if k == c else ctx.remove_class("seg-btn-active")
             if spotlight.topbar:
+                for p in (spotlight.topbar.popover, spotlight.topbar.rem_popover, spotlight.topbar.win_popover):
+                    p.hide()
                 spotlight.topbar.apply_lang()
             spotlight.apply_lang()
+            keep = {spotlight, spotlight.topbar}
+            if spotlight.topbar:
+                keep.update((spotlight.topbar.popover, spotlight.topbar.rem_popover, spotlight.topbar.win_popover))
+            for w in list(Gtk.Window.list_toplevels()):
+                if w not in keep:
+                    w.destroy()
+            spotlight._settings_dlg = None
+            spotlight._on_settings_font = None
         lb.connect("clicked", _set_l)
         lang_btns[code] = lb
         lang_row.pack_start(lb, True, True, 0)
