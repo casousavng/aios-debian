@@ -1870,10 +1870,26 @@ def open_settings_dialog(spotlight):
         kb_btns[code] = kb_b
         kb_row.pack_start(kb_b, True, True, 0)
     tab_ui.pack_start(kb_row, False, False, 0)
+    nb.append_page(tab_ui, Gtk.Label(label=t("settings_ui_tab")))
+
+    # Tab 3: Data & Artifacts
+    tab_data = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
+    tab_data.set_border_width(14)
+    chats_hdr = Gtk.Label(label=t("chats_mgr_title"), xalign=0)
+    chats_hdr.get_style_context().add_class("pop-sub")
+    tab_data.pack_start(chats_hdr, False, False, 0)
     chats_mgr_b = Gtk.Button(label=t("chats_mgr_btn"))
     chats_mgr_b.connect("clicked", lambda *_: open_chats_dialog(spotlight, dlg))
-    tab_ui.pack_start(chats_mgr_b, False, False, 4)
-    nb.append_page(tab_ui, Gtk.Label(label=t("settings_ui_tab")))
+    tab_data.pack_start(chats_mgr_b, False, False, 0)
+
+    tab_data.pack_start(Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL), False, False, 4)
+    art_hdr = Gtk.Label(label=t("artifacts_title"), xalign=0)
+    art_hdr.get_style_context().add_class("pop-sub")
+    tab_data.pack_start(art_hdr, False, False, 0)
+    art_b = Gtk.Button(label=t("artifacts_btn"))
+    art_b.connect("clicked", lambda *_: open_artifacts_dialog(dlg))
+    tab_data.pack_start(art_b, False, False, 0)
+    nb.append_page(tab_data, Gtk.Label(label=t("settings_data_tab")))
 
     # Tab 3: System (non-duplicated OS tools)
     tab_sys = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
@@ -1901,8 +1917,6 @@ def open_settings_dialog(spotlight):
     upd_b.connect("clicked", lambda *_: (dlg.destroy(), subprocess.Popen(["/opt/ai-os/spotlight/update.sh"])))
     podman_b = Gtk.Button(label="Podman")
     podman_b.connect("clicked", lambda *_: (dlg.destroy(), spotlight.execute_item(("slash", "#podman", "", "", "local:podman"))))
-    art_b = Gtk.Button(label=t("artifacts_btn"))
-    art_b.connect("clicked", lambda *_: open_artifacts_dialog(dlg))
     clean_b = Gtk.Button(label=t("clean_btn"))
     clean_lbl = Gtk.Label(label="", xalign=0)
     clean_lbl.set_line_wrap(True)
@@ -1923,7 +1937,7 @@ def open_settings_dialog(spotlight):
             GLib.idle_add(lambda: (clean_lbl.set_text(msg), clean_b.set_sensitive(True), False)[2])
         threading.Thread(target=_bg, daemon=True).start()
     clean_b.connect("clicked", _run_clean)
-    for b in (upd_b, podman_b, art_b, clean_b):
+    for b in (upd_b, podman_b, clean_b):
         maint_row.pack_start(b, True, True, 0)
     tab_sys.pack_start(maint_row, False, False, 0)
     tab_sys.pack_start(clean_lbl, False, False, 0)

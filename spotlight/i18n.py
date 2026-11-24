@@ -178,6 +178,7 @@ STRINGS = {
         "chats_mgr_btn": "Gerir Conversas",
         "chats_mgr_title": "Conversas Guardadas",
         "chats_mgr_empty": "Sem conversas guardadas.",
+        "settings_data_tab": "Dados",
     },
     "en": {
         "placeholder": "Ask anything, / for AI, # for system...",
@@ -350,6 +351,7 @@ STRINGS = {
         "chats_mgr_btn": "Manage Chats",
         "chats_mgr_title": "Saved Conversations",
         "chats_mgr_empty": "No saved conversations.",
+        "settings_data_tab": "Data",
     },
 }
 
