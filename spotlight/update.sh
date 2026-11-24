@@ -1,6 +1,6 @@
 #!/bin/bash
 set -e
-notify-send "AI-OS" "A atualizar sistema Debian e AI-OS..." 2>/dev/null || true
+notify-send -r 9910 -u critical "AI-OS" "A atualizar sistema Debian e AI-OS..." 2>/dev/null || true
 sudo apt-get update -qq
 sudo DEBIAN_FRONTEND=noninteractive apt-get upgrade -y
 sudo apt-get autoremove --purge -y
@@ -23,8 +23,8 @@ if [ -d /opt/ai-os/repo/.git ]; then
     ); then
         sudo rm -rf /opt/ai-os/spotlight
         sudo mv /opt/ai-os/spotlight.bak /opt/ai-os/spotlight
-        notify-send -u critical "AI-OS" "Erro na atualização: rollback aplicado." 2>/dev/null || true
+        notify-send -r 9910 -u critical "AI-OS" "Erro na atualização: rollback aplicado." 2>/dev/null || true
         exit 1
     fi
 fi
-notify-send "AI-OS" "Atualização concluída." 2>/dev/null || true
+notify-send -r 9910 -u normal "AI-OS" "Atualização concluída." 2>/dev/null || true
