@@ -17,8 +17,10 @@ sudo DEBIAN_FRONTEND=noninteractive apt-get install -y \
   network-manager brightnessctl pipewire wireplumber dunst libnotify-bin podman ufw i3lock \
   gvfs udisks2 scrot lxpolkit xss-lock gpicview libinput-tools python3-websockets xdotool jq \
   fonts-inter fonts-jetbrains-mono earlyoom bibata-cursor-theme \
-  python3 python3-fastapi python3-uvicorn python3-psutil python3-openpyxl python3-docx python3-pptx \
+  python3 python3-fastapi python3-uvicorn python3-psutil python3-openpyxl python3-docx python3-pip \
   curl git libglib2.0-bin xterm zram-tools
+
+sudo pip3 install --break-system-packages --no-cache-dir python-pptx || true
 
 echo "=== [3/6] Criar estrutura de pastas do AI-OS ==="
 mkdir -p "$HOME/Desktop" "$HOME/Documentos" "$HOME/Projetos" "$HOME/Temp"

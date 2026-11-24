@@ -91,7 +91,7 @@ python3-psutil
 python3-markdown
 python3-openpyxl
 python3-docx
-python3-pptx
+python3-pip
 gir1.2-gtk-3.0
 gir1.2-webkit2-4.1
 EOF
@@ -144,6 +144,7 @@ chmod +x /opt/ai-os/spotlight/*.py /opt/ai-os/spotlight/*.sh
 ln -sf /opt/ai-os/spotlight/web_agent.py /usr/local/bin/aios-web
 ln -sf /opt/ai-os/spotlight/litemd.py /usr/local/bin/litemd
 update-desktop-database /usr/share/applications || true
+pip3 install --break-system-packages --no-cache-dir python-pptx || true
 mkdir -p /etc/skel/Desktop /etc/skel/Documentos /etc/skel/Projetos /etc/skel/Downloads /etc/skel/Temp
 mkdir -p /etc/skel/.config/systemd/user/default.target.wants
 ln -sf ../aios-spotlight.service /etc/skel/.config/systemd/user/default.target.wants/aios-spotlight.service
